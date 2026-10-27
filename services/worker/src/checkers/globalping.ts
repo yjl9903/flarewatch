@@ -40,21 +40,19 @@ const measurementResultSchema = z.object({
         status: z.string(),
         rawOutput: z.optional(z.string()),
         statusCode: z.optional(z.number()),
-        rawBody: z.optional(z.string()),
+        rawBody: z.optional(z.nullable(z.string())),
         timings: z.optional(z.object({ total: z.number() })),
         stats: z.optional(z.object({ avg: z.number() })),
         tls: z.optional(
-          z.object({
-            authorized: z.boolean(),
-            error: z.optional(z.string()),
-            certificate: z.optional(
-              z.object({
-                expiresAt: z.optional(z.string()),
-                issuer: z.optional(z.object({ commonName: z.optional(z.string()) })),
-                subject: z.optional(z.object({ commonName: z.optional(z.string()) })),
-              }),
-            ),
-          }),
+          z.nullable(
+            z.object({
+              authorized: z.boolean(),
+              error: z.optional(z.string()),
+              expiresAt: z.optional(z.string()),
+              issuer: z.optional(z.object({ CN: z.optional(z.string()) })),
+              subject: z.optional(z.object({ CN: z.optional(z.string()) })),
+            }),
+          ),
         ),
       }),
     }),
@@ -153,17 +151,17 @@ async function validateHttpResult(
       error = `TLS error: ${tls.error ?? 'Certificate not trusted'}`;
     }
 
-    if (tls.certificate?.expiresAt) {
-      const { expiryDate, daysUntilExpiry } = calculateCertExpiry(tls.certificate.expiresAt);
+    if (tls.expiresAt) {
+      const { expiryDate, daysUntilExpiry } = calculateCertExpiry(tls.expiresAt);
       if (!Number.isFinite(expiryDate)) {
         if (!error && target.sslCheckEnabled) error = 'Invalid certificate expiry date';
       } else {
         ssl = { expiryDate, daysUntilExpiry };
-        if (tls.certificate.issuer?.commonName) {
-          ssl.issuer = tls.certificate.issuer.commonName;
+        if (tls.issuer?.CN) {
+          ssl.issuer = tls.issuer.CN;
         }
-        if (tls.certificate.subject?.commonName) {
-          ssl.subject = tls.certificate.subject.commonName;
+        if (tls.subject?.CN) {
+          ssl.subject = tls.subject.CN;
         }
 
         if (!error && target.sslCheckEnabled) {

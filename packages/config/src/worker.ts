@@ -1,7 +1,7 @@
 import type { Monitor, MonitorTarget, WorkerConfig } from '@flarewatch/shared';
 
 // One probe per region per minute: 360 Globalping tests/hour. See docs/monitors.md.
-const resourceRegions = [
+const homeRegions = [
   { id: 'sg', name: '新加坡', magic: 'SG+eyeball-network' },
   { id: 'cn_telecom', name: '中国电信', magic: 'CN+AS4134+eyeball-network' },
   { id: 'cn_unicom', name: '中国联通', magic: 'CN+AS4837+eyeball-network' },
@@ -10,16 +10,16 @@ const resourceRegions = [
   { id: 'hk', name: '中国香港', magic: 'HK+eyeball-network' },
 ];
 
-const regionalResources: MonitorTarget[] = resourceRegions.map(({ id, name, magic }) => ({
-  id: `animegarden_resources_${id}`,
-  name: `资源页 ${name} - Anime Garden`,
+const regionalHomepages: MonitorTarget[] = homeRegions.map(({ id, name, magic }) => ({
+  id: `animegarden_home_${id}`,
+  name: `${name} - Anime Garden`,
   method: 'GET',
-  target: 'https://animes.garden/resources',
+  target: 'https://animes.garden/',
   checkEveryMinutes: 1,
   timeout: 48000,
   downAfterChecks: 4,
   expectedCodes: [200],
-  responseKeyword: '<title>所有资源 | Anime Garden</title>',
+  responseKeyword: '<title>Anime Garden 動漫花園第三方镜像站以及动画 BT 资源聚合站</title>',
   checkProxy: `globalping://?${new URLSearchParams({ magic, ipVersion: '4' }).toString()}`,
   // Keep regional failures visible; a direct fallback or confirmation would mask them.
   checkProxyFallback: false,
@@ -28,7 +28,7 @@ const regionalResources: MonitorTarget[] = resourceRegions.map(({ id, name, magi
 // Imported from Uptime Kuma; see docs/kuma-migration.md for parameter differences.
 // HTTP checks accept 200–299 by default and validate TLS certificates.
 const monitors: Monitor[] = [
-  ...regionalResources,
+  ...regionalHomepages,
   {
     id: 'animegarden_home',
     name: '首页 - Anime Garden',

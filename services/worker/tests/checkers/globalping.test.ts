@@ -227,16 +227,53 @@ describe('GlobalPingChecker', () => {
     });
   });
 
-  it('returns parsed TLS certificate information', async () => {
+  it('reports an empty-body redirect as a status failure rather than an invalid payload', async () => {
+    mockCompletedMeasurement(
+      finishedMeasurement({
+        statusCode: 307,
+        rawBody: null,
+        tls: { authorized: true, expiresAt: '2025-02-20T12:00:00Z', issuer: { CN: 'Example CA' } },
+      }),
+    );
+
+    expect(await check(createMonitor({ expectedCodes: [200] }))).toEqual({
+      location: 'FI/Helsinki',
+      result: { ok: false, error: 'Expected status 200, got 307', latency: 13 },
+    });
+  });
+
+  it('accepts an HTTP response without a body or TLS certificate when no body assertion is set', async () => {
+    mockCompletedMeasurement(finishedMeasurement({ statusCode: 204, rawBody: null, tls: null }));
+    expect(await check(createMonitor({ target: 'http://example.com' }))).toEqual({
+      location: 'FI/Helsinki',
+      result: { ok: true, latency: 13 },
+    });
+  });
+
+  it('still fails a keyword assertion when the API returns a null body', async () => {
+    mockCompletedMeasurement(finishedMeasurement({ rawBody: null, tls: null }));
+    expect((await check(createMonitor({ responseKeyword: 'ready' }))).result).toMatchObject({
+      ok: false,
+      error: 'Required keyword "ready" not found in response',
+    });
+  });
+
+  it('still rejects a body of the wrong type', async () => {
+    mockCompletedMeasurement(finishedMeasurement({ rawBody: { unexpected: true } }));
+    expect((await check(createMonitor())).result).toMatchObject({
+      ok: false,
+      error: 'GlobalPing: invalid measurement payload',
+    });
+  });
+
+  it('returns TLS certificate information from the API’s flat fields', async () => {
     mockCompletedMeasurement(
       finishedMeasurement({
         tls: {
           authorized: true,
-          certificate: {
-            expiresAt: '2025-02-20T12:00:00Z',
-            issuer: { commonName: 'Example CA' },
-            subject: { commonName: 'example.com' },
-          },
+          expiresAt: '2025-02-20T12:00:00Z',
+          issuer: { CN: 'Example CA' },
+          subject: { CN: 'example.com' },
         },
       }),
     );
@@ -263,7 +300,7 @@ describe('GlobalPingChecker', () => {
       finishedMeasurement({
         tls: {
           authorized: true,
-          certificate: { expiresAt: '2025-01-29T12:00:00Z' },
+          expiresAt: '2025-01-29T12:00:00Z',
         },
       }),
     );
@@ -285,9 +322,7 @@ describe('GlobalPingChecker', () => {
   it.each(['2025-01-15T12:00:00Z', '2025-01-14T12:00:00Z'])(
     'fails an expired certificate at %s',
     async (expiresAt) => {
-      mockCompletedMeasurement(
-        finishedMeasurement({ tls: { authorized: true, certificate: { expiresAt } } }),
-      );
+      mockCompletedMeasurement(finishedMeasurement({ tls: { authorized: true, expiresAt } }));
       expect((await check(createMonitor({ sslCheckEnabled: true }))).result).toMatchObject({
         ok: false,
         error: 'Certificate has expired',
@@ -298,7 +333,7 @@ describe('GlobalPingChecker', () => {
   it('fails a certificate check whose expiry date does not parse, without NaN metadata', async () => {
     mockCompletedMeasurement(
       finishedMeasurement({
-        tls: { authorized: true, certificate: { expiresAt: 'not-a-date' } },
+        tls: { authorized: true, expiresAt: 'not-a-date' },
       }),
     );
 

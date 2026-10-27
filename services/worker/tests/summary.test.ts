@@ -228,7 +228,8 @@ it('sends the alerts that a run cannot fit one by one as a summary, for an outag
   const run = async () => {
     sent.length = 0;
     requests = 0;
-    await runChecks({ MONITOR_HUB: hubNamespace(hub) }, deps);
+    // Leave 50 requests after earlier work, so this small fixture exhausts the budget.
+    await runChecks({ MONITOR_HUB: hubNamespace(hub) }, deps, undefined, 9950);
     expect(requests).toBeLessThanOrEqual(50);
     return sent.join('\n');
   };

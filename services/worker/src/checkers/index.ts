@@ -22,8 +22,8 @@ import { ROW_BYTES } from '../hub/sql';
 
 const log = createLogger('Check');
 
-/** Workers Free plan: subrequests per invocation. Each check, Globalping call and hub RPC is one. */
-const SUBREQUEST_LIMIT = 50;
+/** Workers Paid default: subrequests per invocation. Each check, Globalping call and hub RPC is one. */
+const SUBREQUEST_LIMIT = 10_000;
 /** The edge-location lookup, the hub's record call and its alert confirmation. */
 const RESERVED_SUBREQUESTS = 3;
 /** Checks end this long after the run starts; the rest of the minute goes to the hub and alerts. */

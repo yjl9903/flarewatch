@@ -14,6 +14,8 @@ import { createHub, hubNamespace } from './helpers/hub';
 import { createWorkerDeps } from './helpers/worker-deps';
 import { webhookCapture, type Delivered } from './helpers/webhook-delivery';
 import { freezeClock } from '@flarewatch/shared/testing/clock';
+import { createMonitor as createHttpMonitor } from '@flarewatch/shared/testing/monitors';
+import { finishedMeasurement } from './helpers/globalping';
 
 const network = vi.fn<Fetcher>();
 const workerConfigMock: WorkerConfig = { monitors: [] };
@@ -85,7 +87,45 @@ describe('scheduled handler', () => {
   });
 });
 
+it('finishes seven slow Globalping measurements after more than 50 requests', async () => {
+  freezeClock(new Date('2025-01-15T12:00:00Z'));
+  const started = Date.now();
+  const monitors: MonitorTarget[] = Array.from({ length: 7 }, (_, i) =>
+    createHttpMonitor({
+      id: `region${i}`,
+      checkProxy: 'globalping://test-token',
+      timeout: 48000,
+    }),
+  );
+  const { hub } = createHub();
+  const fetcher = vi.fn<Fetcher>(async (_url, options) => {
+    if (options?.method === 'POST') return Response.json({ id: 'measurement' }, { status: 202 });
+    return Response.json(
+      Date.now() - started < 15000 ? { status: 'in-progress', results: [] } : finishedMeasurement(),
+    );
+  });
+
+  const pending = runChecks(
+    { MONITOR_HUB: hubNamespace(hub) },
+    createWorkerDeps({ monitors }, { fetcher }),
+  );
+  await vi.advanceTimersByTimeAsync(16000);
+  await pending;
+
+  expect(fetcher.mock.calls.length).toBeGreaterThan(50);
+  const recorded = Object.values(hub.view().monitors);
+  expect(recorded).toHaveLength(7);
+  for (const monitor of recorded) expect(monitor.status).toBe('up');
+});
+
 describe('subrequests per check run', () => {
+  // Exercise exhaustion with small fixtures after earlier work has spent 9,950 requests.
+  const runWith50Remaining = (
+    env: Env,
+    deps: Parameters<typeof runChecks>[1],
+    scheduledAt?: number,
+  ) => runChecks(env, deps, scheduledAt, 9950);
+
   const PROXY = 'https://proxy.example.com/check';
 
   const HOOK = 'https://hooks.example.com/alert';
@@ -112,7 +152,7 @@ describe('subrequests per check run', () => {
       const record = vi.spyOn(hub, 'record');
       const confirmAlerts = vi.spyOn(hub, 'confirmAlerts');
 
-      await runChecks(
+      await runWith50Remaining(
         env,
         createWorkerDeps({
           monitors: [...redirecting, healthy],
@@ -171,7 +211,7 @@ describe('subrequests per check run', () => {
     const requests = () =>
       fetchMock.mock.calls.length + record.mock.calls.length + confirmAlerts.mock.calls.length + 1;
 
-    await runChecks(env, deps);
+    await runWith50Remaining(env, deps);
     expect(overlapped).toBe(true);
     expect(requests()).toBeLessThanOrEqual(50);
 
@@ -180,7 +220,7 @@ describe('subrequests per check run', () => {
     confirmAlerts.mockClear();
     fetchMock.mockImplementation(async () => new Response('ok'));
     vi.setSystemTime(Date.now() + 120_000);
-    await runChecks(env, deps);
+    await runWith50Remaining(env, deps);
 
     expect(requests()).toBeLessThanOrEqual(50);
     const sent = fetchMock.mock.calls
@@ -203,7 +243,7 @@ describe('subrequests per check run', () => {
     const { hub, env } = createEnv();
     const record = vi.spyOn(hub, 'record');
     const confirmAlerts = vi.spyOn(hub, 'confirmAlerts');
-    await runChecks(
+    await runWith50Remaining(
       env,
       createWorkerDeps({ monitors, ...(notification && { notification }) }),
       scheduledAt,
@@ -318,7 +358,7 @@ describe('subrequests per check run', () => {
     const record = vi.spyOn(hub, 'record');
     const confirmAlerts = vi.spyOn(hub, 'confirmAlerts');
 
-    await runChecks(env, {
+    await runWith50Remaining(env, {
       ...createWorkerDeps({ monitors, ...(notification && { notification }) }),
       createNotifier,
     });
@@ -381,7 +421,7 @@ describe('subrequests per check run', () => {
       createNotifier,
     };
 
-    await runChecks(env, deps);
+    await runWith50Remaining(env, deps);
 
     expect(refused).toBe(0);
     const ids = monitors.map((monitor) => monitor.id).sort();

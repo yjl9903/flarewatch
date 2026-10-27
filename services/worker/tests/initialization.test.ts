@@ -156,7 +156,7 @@ it('initialization admission leaves room for hub recording and an alert', async 
       admission.mock.calls.length +
       recording.mock.calls.length +
       confirmation.mock.calls.length,
-  ).toBeLessThanOrEqual(50);
+  ).toBeLessThanOrEqual(10000);
   expect(deliveries).toBe(1);
   expect(Object.keys(hub.view().monitors)).toHaveLength(40);
 });

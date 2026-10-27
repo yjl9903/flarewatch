@@ -62,26 +62,26 @@ describe('capacityIssue', () => {
       checkEveryMinutes: 1,
     }));
 
-  it('allows 47 every-minute checks: 50 subrequests less 3 for the hub', () => {
-    expect(capacityIssue(gets(47), 0)).toBeUndefined();
-    expect(capacityIssue(gets(48), 0)).toBeDefined();
+  it('allows 9,997 every-minute checks: 10,000 subrequests less 3 reserved calls', () => {
+    expect(capacityIssue(gets(9997), 0)).toBeUndefined();
+    expect(capacityIssue(gets(9998), 0)).toBeDefined();
   });
 
   it('takes one more subrequest for each webhook', () => {
-    expect(capacityIssue(gets(46), 1)).toBeUndefined();
-    expect(capacityIssue(gets(47), 1)).toBeDefined();
+    expect(capacityIssue(gets(9996), 1)).toBeUndefined();
+    expect(capacityIssue(gets(9997), 1)).toBeDefined();
   });
 
   it('counts a DOMAIN check as two', () => {
-    expect(capacityIssue(domains(23), 0)).toBeUndefined();
-    expect(capacityIssue(domains(24), 0)).toBeDefined();
+    expect(capacityIssue(domains(4998), 0)).toBeUndefined();
+    expect(capacityIssue(domains(4999), 0)).toBeDefined();
   });
 
   it('leaves out checks on a longer interval and heartbeats', () => {
     expect(
       capacityIssue(
         [
-          ...gets(60, 2),
+          ...gets(10000, 2),
           { id: 'daily', name: 'Daily', method: 'DOMAIN', target: 'example.com' },
           { id: 'job', name: 'Job', method: 'HEARTBEAT', periodSeconds: 60, graceSeconds: 60 },
         ],

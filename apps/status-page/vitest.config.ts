@@ -14,6 +14,11 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),
+      // Route fixtures use demo IDs, independent of the deployed monitor list.
+      '@flarewatch/config/worker': path.resolve(
+        import.meta.dirname,
+        '../../packages/config/src/demo/worker.ts',
+      ),
     },
   },
   test: {

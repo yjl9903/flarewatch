@@ -1,14 +1,25 @@
 import type { PageConfig } from '@flarewatch/shared';
 
 export const pageConfig: PageConfig = {
-  title: 'FlareWatch',
+  title: 'Anime Garden 服务监控',
   links: [
-    { label: 'GitHub', link: 'https://github.com/saminnet/flarewatch' },
-    { label: 'Cloudflare', link: 'https://www.cloudflare.com/' },
+    { label: 'Anime Garden', link: 'https://animes.garden/' },
+    { label: 'OneKuma', link: 'https://onekuma.cn/' },
   ],
   group: {
-    Websites: ['demo_example', 'demo_cloudflare_docs'],
-    APIs: ['demo_cloudflare_trace', 'demo_one_dns_trace'],
-    'Status Feeds': ['demo_cloudflare_status', 'demo_github_status'],
+    'Anime Garden 页面': [
+      'animegarden_home',
+      'animegarden_resources',
+      'animegarden_subject',
+      'animegarden_detail',
+      'animegarden_docs',
+    ],
+    'Anime Garden 服务': ['animegarden_api', 'animegarden_feed', 'bgmx_api'],
+    'Anime Garden 源站': ['source_dmhy', 'source_mikan', 'source_bangumi'],
+    'Torrent 服务': ['torrenta_home'],
+    KeepShare: ['keepshare_resource'],
+    lnovel: ['lnovel_home', 'lnovel_api'],
+    OneKuma: ['umami', 'pikpak_referral', 'onekuma_home', 'xlor_home'],
+    域名到期: ['domain_animes_garden', 'domain_onekuma_cn', 'domain_xlor_cn'],
   },
 };

@@ -7,6 +7,9 @@ import { renderWithProviders } from '../helpers/render';
 import type { StatusView } from '@flarewatch/shared';
 
 import { MonitorList } from '@/components/monitor-list';
+import { useDisplayTimeZone } from '../helpers/display-time-zone';
+
+useDisplayTimeZone('Asia/Shanghai');
 
 const state: StatusView = { lastUpdate: 0, monitors: {} };
 
@@ -27,10 +30,10 @@ describe('MonitorList', () => {
     expect(screen.queryByRole('group', { name: 'Filter monitors by kind' })).toBeNull();
   });
 
-  it('counts only the days a young monitor has been watched in the row label', () => {
-    const lastUpdate = Date.parse('2025-01-15T12:00:00Z') / 1000;
-    const startedAt = Date.parse('2024-12-23T12:00:00Z') / 1000;
-    const outage = Date.parse('2025-01-10T08:00:00Z') / 1000;
+  it('shows 84 two-hour periods and counts only observed periods in the row label', () => {
+    const lastUpdate = Date.parse('2025-01-15T12:30:00Z') / 1000;
+    const startedAt = Date.parse('2025-01-15T10:00:00Z') / 1000;
+    const outage = Date.parse('2025-01-15T10:30:00Z') / 1000;
     const young: StatusView = {
       lastUpdate,
       monitors: {
@@ -47,13 +50,23 @@ describe('MonitorList', () => {
       { id: 'flaky', name: 'Flaky', method: 'GET' },
     ];
 
-    renderWithProviders(<MonitorList monitors={monitors} state={young} maintenances={[]} />);
+    const { container } = renderWithProviders(
+      <MonitorList monitors={monitors} state={young} maintenances={[]} />,
+    );
+    const strips = container.querySelectorAll('[data-slot="row-bars"]');
+    expect(strips).toHaveLength(2);
+    for (const strip of strips) expect(strip.children).toHaveLength(84);
+    expect(strips[1]?.querySelectorAll('.bg-status-down')).toHaveLength(1);
 
     expect(
-      screen.getByRole('link', { name: /^Quiet, .*, no downtime in the last 24 days$/ }),
+      screen.getByRole('link', {
+        name: /^Quiet, .*, no downtime in 2 monitored two-hour periods$/,
+      }),
     ).toBeTruthy();
     expect(
-      screen.getByRole('link', { name: /^Flaky, .*, downtime on 1 of the last 24 days$/ }),
+      screen.getByRole('link', {
+        name: /^Flaky, .*, downtime in 1 of 2 monitored two-hour periods$/,
+      }),
     ).toBeTruthy();
   });
 });

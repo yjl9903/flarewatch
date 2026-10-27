@@ -22,7 +22,7 @@ import { deriveHeartbeat, type HeartbeatView } from '@/lib/heartbeat';
 import { monitorState, type MonitorState } from '@/lib/monitor-state';
 import { formatColoLabel } from '@/lib/cf-colos';
 import { formatDisplayShort, formatCadence, formatDuration } from '@/lib/date';
-import { formatUptimeDisplay, generateDailyStatus } from '@/lib/uptime';
+import { formatUptimeDisplay, generateRecentStatus } from '@/lib/uptime';
 import { LatencyChart } from '@/components/latency-chart';
 import { cn } from '@/lib/utils';
 
@@ -521,7 +521,7 @@ function MonitorSummary({
 /** One line in the monitor list; the whole row opens the monitor's page. */
 export function MonitorRow({ monitor, state, maintenances, operator }: MonitorViewProps) {
   const heartbeat = deriveHeartbeat(monitor, state);
-  const days = generateDailyStatus(monitor.id, state);
+  const periods = generateRecentStatus(monitor.id, state);
   return (
     <div
       data-slot="monitor-row"
@@ -533,9 +533,9 @@ export function MonitorRow({ monitor, state, maintenances, operator }: MonitorVi
         maintenances={maintenances}
         operator={operator}
         detail={false}
-        history={barsSummary(days, heartbeat)}
+        history={barsSummary(periods, heartbeat)}
       />
-      <RowBars days={days} heartbeat={heartbeat} />
+      <RowBars periods={periods} heartbeat={heartbeat} />
     </div>
   );
 }

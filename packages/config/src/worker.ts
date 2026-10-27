@@ -257,7 +257,9 @@ export const workerConfig: WorkerConfig = {
   monitors,
   notification: {
     webhook: [],
-    // Keep collection silent even if an existing deployment has webhook secrets.
-    skipNotificationIds: monitors.map(({ id }) => id),
+    timeZone: 'Asia/Shanghai',
+    gracePeriod: 0,
+    skipErrorChangeNotification: true,
+    summaryAfter: 3,
   },
 };

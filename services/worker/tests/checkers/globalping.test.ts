@@ -7,11 +7,13 @@ import { freezeClock } from '@flarewatch/shared/testing/clock';
 
 const fetchMock = vi.fn<Fetcher>();
 const checker = new GlobalPingChecker(fetchMock);
-const check = (monitor: MonitorTarget) =>
-  checker.check(monitor, monitor.checkProxy ?? '', {
-    deadline: Date.now() + 55_000,
-    subrequests: 10,
-  });
+const check = (monitor: MonitorTarget, token?: string) =>
+  checker.check(
+    monitor,
+    monitor.checkProxy ?? '',
+    { deadline: Date.now() + 55_000, subrequests: 10 },
+    token,
+  );
 
 function createMonitor(overrides: Partial<MonitorTarget> = {}): MonitorTarget {
   return createHttpMonitor({ checkProxy: 'globalping://test-token', ...overrides });
@@ -30,6 +32,54 @@ function mockCompletedMeasurement(measurement: JsonValue): void {
 describe('GlobalPingChecker', () => {
   beforeEach(() => {
     freezeClock(new Date('2025-01-15T12:00:00Z'));
+  });
+
+  it('uses the Worker secret and preserves encoded magic intersections', async () => {
+    mockCompletedMeasurement(finishedMeasurement());
+    const magic = 'CN+AS4134+eyeball-network';
+    const monitor = createMonitor({
+      checkProxy: `globalping://?${new URLSearchParams({ magic }).toString()}`,
+    });
+
+    expect((await check(monitor, 'SecretCaseSensitive')).result.ok).toBe(true);
+    const [, options] = fetchMock.mock.calls[0] ?? [];
+    expect(options?.headers).toMatchObject({ Authorization: 'Bearer SecretCaseSensitive' });
+    expect(JSON.parse(typeof options?.body === 'string' ? options.body : '')).toMatchObject({
+      limit: 1,
+      locations: [{ magic }],
+    });
+    expect(options?.body).not.toContain('SecretCaseSensitive');
+    expect(fetchMock.mock.calls[1]?.[1]?.headers).toBeUndefined();
+  });
+
+  it.each([undefined, '', '   '])(
+    'fails without making a request when the secret is %j',
+    async (token) => {
+      const result = await check(createMonitor({ checkProxy: 'globalping://?magic=SG' }), token);
+      expect(result).toEqual({
+        location: 'ERROR',
+        result: { ok: false, error: 'GlobalPing: GLOBALPING_TOKEN secret is required' },
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps legacy per-location tokens when a Worker secret is also set', async () => {
+    mockCompletedMeasurement(finishedMeasurement());
+    await check(createMonitor(), 'OtherAccountSecret');
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({
+      Authorization: 'Bearer test-token',
+    });
+  });
+
+  it('redacts a credential echoed by the API before logging or recording an error', async () => {
+    const errorLog = vi.spyOn(console, 'error');
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ error: { message: 'Rejected SecretToken' } }, 401),
+    );
+    const result = await check(createMonitor({ checkProxy: 'globalping://' }), 'SecretToken');
+    expect(result.result).toMatchObject({ ok: false, error: 'GlobalPing: Rejected [redacted]' });
+    expect(JSON.stringify(errorLog.mock.calls)).not.toContain('SecretToken');
   });
 
   it('parses proxy settings and builds an HTTP measurement request', async () => {
@@ -62,6 +112,7 @@ describe('GlobalPingChecker', () => {
     expect(typeof body).toBe('string');
     expect(JSON.parse(body as string)).toEqual({
       type: 'http',
+      limit: 1,
       target: 'example.com',
       locations: [{ magic: 'aws-us-east-1' }],
       measurementOptions: {
@@ -106,6 +157,7 @@ describe('GlobalPingChecker', () => {
     const [, options] = fetchMock.mock.calls[0] ?? [];
     expect(JSON.parse(options?.body as string)).toEqual({
       type: 'ping',
+      limit: 1,
       target: 'example.com',
       locations: [{ magic: 'eyeball-network' }],
       measurementOptions: {

@@ -167,11 +167,25 @@ Pings are limited to 30 a minute per monitor, which stops a looping script. Jobs
 
 By default the Worker runs each check itself. `checkProxy` runs it somewhere else:
 
-- `globalping://<token>?magic=fra&ipVersion=4` runs it from [Globalping](https://www.jsdelivr.com/globalping) probes in that location. `TCP_PING` monitors can then set `pingProtocol: 'icmp'`. Keep the token out of git.
+- `globalping://?magic=fra&ipVersion=4` runs it from [Globalping](https://globalping.io/) probes in that location, using the Worker's `GLOBALPING_TOKEN` secret. Each measurement requests one probe. `TCP_PING` monitors can then set `pingProtocol: 'icmp'`.
 - `https://your-proxy.example.com/check` sends it to [flarewatch-proxy](https://github.com/saminnet/flarewatch-proxy), which you run where it can reach your private network. Set the `FLAREWATCH_PROXY_TOKEN` secret to the proxy's token.
 - `vpc` runs it through the Worker's `VPC` binding. See [Check a private network through Workers VPC](#check-a-private-network-through-workers-vpc) below.
 
 When the proxy fails, the check fails. Set `checkProxyFallback: true` to fall back to a direct check. This applies to `vpc` too: the fallback then runs from the Worker itself, over the public internet.
+
+### Globalping credentials
+
+Create a token on the [Globalping Dashboard's Tokens page](https://dash.globalping.io/tokens). Save it as the GitHub Actions repository secret `GLOBALPING_TOKEN`; the deploy workflow copies it only to the monitor Worker. Or set an encrypted secret directly under **Workers & Pages > flarewatch-worker > Settings > Variables and Secrets**, or with the interactive prompt:
+
+```bash
+vp exec --filter worker -- wrangler secret put GLOBALPING_TOKEN --config wrangler.toml
+```
+
+Do not put the value in a config file, command argument or chat. For local development, use the ignored `services/worker/.dev.vars` file; see `.dev.vars.example` there. `FLAREWATCH_PROXY_TOKEN` belongs to the self-hosted proxy and is never used for Globalping.
+
+The token-free URL works for both `checkProxy` and `confirmVia`. If the secret is missing or blank, the attempt fails with `GlobalPing: GLOBALPING_TOKEN secret is required` before making a network request. It does not run anonymously. A monitor with an explicit fallback or confirmation still follows its configured attempt chain. Legacy `globalping://<token>?magic=...` URLs continue to use their own token, even when the Worker secret exists. Migrate them to token-free URLs and rotate any token previously committed to git.
+
+Build combined location filters with `URLSearchParams`, or encode each `+` as `%2B`: `globalping://?magic=CN%2BAS4134%2Beyeball-network&ipVersion=4`. A literal `+` in a URL query decodes to a space and loses the intersection.
 
 ### Check a private network through Workers VPC
 
@@ -239,7 +253,7 @@ A monitor that asks a place for something it can't do fails on every check, with
 }
 ```
 
-This is how to use your own [flarewatch-proxy](https://github.com/saminnet/flarewatch-proxy) as a second vantage point: a blip between Cloudflare and your site no longer opens an incident unless the proxy sees it too. `confirmVia: 'globalping://<token>?magic=fra'` does the same from a Globalping probe. `confirmVia` must name a different place than `checkProxy`, and the table above applies to it too. A confirmation that fails for any reason counts as down, so a proxy older than 2.0.0 can't clear a failed header or JSON check.
+This is how to use your own [flarewatch-proxy](https://github.com/saminnet/flarewatch-proxy) as a second vantage point: a blip between Cloudflare and your site no longer opens an incident unless the proxy sees it too. `confirmVia: 'globalping://?magic=fra'` does the same from a Globalping probe using `GLOBALPING_TOKEN`. `confirmVia` must name a different place than `checkProxy`, and the table above applies to it too. A confirmation that fails for any reason counts as down, so a proxy older than 2.0.0 can't clear a failed header or JSON check.
 
 The free plan allows a check run 50 subrequests. An HTTP, TCP or DNS check reserves one, a DOMAIN check two, and a Globalping check two plus one per extra poll. The hub and each alert webhook need their own. When the checks due in a minute need more than that, the ones that don't fit skip that minute, as a monitor outside its slot does: no result, and its status and incidents stay as they are. The run logs which ones it skipped. Its starting point moves each minute, so the same checks don't miss every time. CI fails a config whose checks due every minute need more on their own, counting the webhooks in the config but not the ones in `FLAREWATCH_WEBHOOKS`. A confirmation, a `checkProxyFallback` check or an extra Globalping poll runs only while the run has some to spare. FlareWatch holds back one request per webhook for alerts. When the run can't send every alert on its own, each webhook gets the ones that don't fit as one summary, in the same run. A summary uses one request per webhook.
 

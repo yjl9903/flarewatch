@@ -11,6 +11,12 @@ export const pageConfig: PageConfig = {
     'Anime Garden 页面': [
       'animegarden_home',
       'animegarden_resources',
+      'animegarden_resources_cn_telecom',
+      'animegarden_resources_cn_unicom',
+      'animegarden_resources_cn_mobile',
+      'animegarden_resources_hk',
+      'animegarden_resources_sg',
+      'animegarden_resources_us',
       'animegarden_subject',
       'animegarden_detail',
       'animegarden_docs',

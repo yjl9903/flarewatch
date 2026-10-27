@@ -211,19 +211,18 @@ function optionalBoolean(field: string) {
 
 /** Where a check runs. The message never quotes the value: a Globalping URL holds a token. */
 function checkLocation(field: string) {
-  const error = `${field} must be an http(s) URL, globalping://<token> or 'vpc'`;
-  return z
-    .string({ error })
-    .check(
-      z.refine(
-        (value) =>
-          value === 'vpc' ||
-          (value.startsWith('globalping://')
-            ? Boolean(URL.parse(value)?.hostname)
-            : isValidHttpUrl(value)),
-        { error },
-      ),
-    );
+  const error = `${field} must be an http(s) URL, globalping://?magic=... or 'vpc'`;
+  return z.string({ error }).check(
+    z.refine(
+      (value) => {
+        if (value === 'vpc') return true;
+        if (!value.startsWith('globalping://')) return isValidHttpUrl(value);
+        const url = URL.parse(value);
+        return Boolean(url && (url.hostname || !url.pathname));
+      },
+      { error },
+    ),
+  );
 }
 
 /** RFC 9110 token characters; Headers.get throws on anything else. */

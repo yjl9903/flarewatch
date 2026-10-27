@@ -63,11 +63,15 @@ const measurementResultSchema = z.object({
 
 type MeasurementResult = z.infer<typeof measurementResultSchema>;
 
-function parseProxyUrl(proxyUrl: string): GlobalPingConfig {
-  const url = new URL(proxyUrl);
+function parseProxyUrl(proxyUrl: string, secret?: string): GlobalPingConfig {
+  const url = URL.parse(proxyUrl);
+  if (!url || url.protocol !== 'globalping:') throw new Error('Invalid Globalping location');
+  // Preserve legacy per-location credentials; token-free locations require the Worker secret.
+  const token = url.hostname || secret?.trim();
+  if (!token) throw new Error('GLOBALPING_TOKEN secret is required');
   const magic = url.searchParams.get('magic');
   const config: GlobalPingConfig = {
-    token: url.hostname,
+    token,
     ipVersion: parseInt(url.searchParams.get('ipVersion') ?? '4', 10),
   };
   if (magic) {
@@ -81,6 +85,7 @@ function buildTcpRequest(target: MonitorTarget, config: GlobalPingConfig) {
 
   return {
     type: 'ping',
+    limit: 1,
     target: hostname,
     locations: config.magic ? [{ magic: config.magic }] : undefined,
     measurementOptions: {
@@ -97,6 +102,7 @@ function buildHttpRequest(target: MonitorTarget, config: GlobalPingConfig) {
 
   return {
     type: 'http',
+    limit: 1,
     target: targetUrl.hostname,
     locations: config.magic ? [{ magic: config.magic }] : undefined,
     measurementOptions: {
@@ -286,7 +292,9 @@ export class GlobalPingChecker {
     target: MonitorTarget,
     url: string,
     budget: RunBudget,
+    token?: string,
   ): Promise<CheckResultWithLocation> {
+    let credential = '';
     let requests = 0;
     const fetcher: Fetcher = async (input, options = {}) => {
       const remaining = budget.deadline - Date.now();
@@ -300,7 +308,8 @@ export class GlobalPingChecker {
       return this.fetcher(input, { ...options, timeout, redirect: 'manual' });
     };
     try {
-      const config = parseProxyUrl(url);
+      const config = parseProxyUrl(url, token);
+      credential = config.token;
 
       const measurementRequest =
         target.method === 'TCP_PING'
@@ -313,7 +322,9 @@ export class GlobalPingChecker {
       const measurement = await pollMeasurement(measurementId, pollTimeout, fetcher);
       return await parseMeasurementResult(target, measurement);
     } catch (error) {
-      const errorMessage = getErrorMessage(error);
+      const message = getErrorMessage(error);
+      // API and transport errors can quote the Authorization header. Never persist or log it.
+      const errorMessage = credential ? message.replaceAll(credential, '[redacted]') : message;
       const isTimeout = errorMessage.toLowerCase().includes('timeout');
 
       log.error('Error', { name: target.name, error: errorMessage });

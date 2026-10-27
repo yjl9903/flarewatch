@@ -41,16 +41,16 @@ export const workerConfig: WorkerConfig = {
     },
 
     // GlobalPing checks (distributed probes worldwide)
-    // Requires a token from https://www.jsdelivr.com/globalping
+    // Set GLOBALPING_TOKEN from https://dash.globalping.io/tokens as a Worker secret
     // Treat the token as a secret and do not commit it to git.
-    // Format: globalping://TOKEN?magic=LOCATION&ipVersion=4
+    // Format: globalping://?magic=LOCATION&ipVersion=4
     //
     // {
     //   id: 'global-check',
     //   name: 'Global Check',
     //   method: 'GET',
     //   target: 'https://example.com',
-    //   checkProxy: 'globalping://YOUR_GLOBALPING_TOKEN?magic=fra&ipVersion=4',
+    //   checkProxy: 'globalping://?magic=fra&ipVersion=4',
     // },
 
     // Check again from your own flarewatch-proxy before an outage opens
@@ -59,7 +59,7 @@ export const workerConfig: WorkerConfig = {
     //   name: 'Website',
     //   method: 'GET',
     //   target: 'https://example.com',
-    //   confirmVia: 'https://your-proxy.example.com/check', // or 'globalping://TOKEN?magic=fra'
+    //   confirmVia: 'https://your-proxy.example.com/check', // or 'globalping://?magic=fra'
     // },
 
     // TCP port check (runs from the Worker; a proxy is only needed for private networks)

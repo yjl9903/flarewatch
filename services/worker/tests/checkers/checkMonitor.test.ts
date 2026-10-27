@@ -43,6 +43,41 @@ const failedMeasurement = (output: string) =>
   });
 
 describe('checkMonitor', () => {
+  it.each(['checkProxy', 'confirmVia'] as const)(
+    'passes GLOBALPING_TOKEN through %s',
+    async (field) => {
+      if (field === 'confirmVia')
+        fetchMock.mockResolvedValueOnce(new Response('', { status: 503 }));
+      fetchMock
+        .mockResolvedValueOnce(json({ id: 'm1' }, 202))
+        .mockResolvedValueOnce(finishedAt('SG', 'Singapore', 5));
+      const result = await checkMonitor(
+        createTarget({ [field]: 'globalping://?magic=SG%2Beyeball-network' }),
+        {
+          ...createCtx(),
+          env: { GLOBALPING_TOKEN: 'globalping-secret', FLAREWATCH_PROXY_TOKEN: 'proxy-secret' },
+        },
+        deps,
+      );
+      expect(result).toEqual({ location: 'SG/Singapore', result: { ok: true, latency: 5 } });
+      const creation = fetchMock.mock.calls.find(([url]) => url === GLOBALPING_API);
+      expect(creation?.[1]?.headers).toMatchObject({ Authorization: 'Bearer globalping-secret' });
+    },
+  );
+
+  it('does not substitute the external proxy token or a direct request for a missing Globalping secret', async () => {
+    const result = await checkMonitor(
+      createTarget({ checkProxy: 'globalping://?magic=SG' }),
+      { ...createCtx(), env: { FLAREWATCH_PROXY_TOKEN: 'proxy-secret' } },
+      deps,
+    );
+    expect(result.result).toMatchObject({
+      ok: false,
+      error: 'GlobalPing: GLOBALPING_TOKEN secret is required',
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('delegates to GlobalPing when checkProxy is globalping://', async () => {
     fetchMock
       .mockResolvedValueOnce(json({ id: 'm1' }, 202))

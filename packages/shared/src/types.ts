@@ -380,7 +380,7 @@ export interface CheckContext {
    * Worker bindings a checker may need. Kept structural and narrow so shared
    * does not depend on the worker's Env type.
    */
-  env: { FLAREWATCH_PROXY_TOKEN?: string; VPC?: VpcBinding };
+  env: { FLAREWATCH_PROXY_TOKEN?: string; GLOBALPING_TOKEN?: string; VPC?: VpcBinding };
   budget: RunBudget;
 }
 

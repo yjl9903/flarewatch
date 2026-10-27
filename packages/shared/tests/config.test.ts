@@ -568,17 +568,17 @@ describe('config validation', () => {
     [{ responseHeaderEquals: { 'X-A': 1 } }, 'responseHeaderEquals values must be strings'],
     [
       { checkProxy: 'worker://local' },
-      "checkProxy must be an http(s) URL, globalping://<token> or 'vpc'",
+      "checkProxy must be an http(s) URL, globalping://?magic=... or 'vpc'",
     ],
     [
-      { checkProxy: 'globalping://' },
-      "checkProxy must be an http(s) URL, globalping://<token> or 'vpc'",
+      { checkProxy: 'globalping://[' },
+      "checkProxy must be an http(s) URL, globalping://?magic=... or 'vpc'",
     ],
-    [{ checkProxy: 'vpc ' }, "checkProxy must be an http(s) URL, globalping://<token> or 'vpc'"],
+    [{ checkProxy: 'vpc ' }, "checkProxy must be an http(s) URL, globalping://?magic=... or 'vpc'"],
     [{ pingProtocol: 'udp' }, "pingProtocol must be 'tcp' or 'icmp'"],
     [
       { confirmVia: 'worker://local' },
-      "confirmVia must be an http(s) URL, globalping://<token> or 'vpc'",
+      "confirmVia must be an http(s) URL, globalping://?magic=... or 'vpc'",
     ],
     [
       { checkProxy: 'globalping://T?magic=fra', confirmVia: 'globalping://T?magic=fra' },
@@ -594,6 +594,9 @@ describe('config validation', () => {
     { responseKeyword: 'x' },
     { responseForbiddenKeyword: 'x' },
     { responseHeaderEquals: { 'X-A': '' } },
+    { checkProxy: 'globalping://' },
+    { checkProxy: 'globalping://?magic=SG%2Beyeball-network' },
+    { confirmVia: 'globalping://?magic=CN%2BAS4134%2Beyeball-network' },
     { checkProxy: 'vpc' },
     { confirmVia: 'vpc' },
   ])('accepts the shortest useful value %j', (overrides) => {

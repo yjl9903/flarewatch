@@ -7,6 +7,8 @@ export interface Env {
   VPC?: VpcBinding;
   /** Sent as `Authorization: Bearer <token>` on every external proxy check. */
   FLAREWATCH_PROXY_TOKEN?: string;
+  /** Globalping API credential for token-free globalping:// locations. */
+  GLOBALPING_TOKEN?: string;
   /** Webhooks as JSON, one or a list, that get alerts alongside `notification.webhook`. */
   FLAREWATCH_WEBHOOKS?: string;
   /** Root secret for ping tokens (base64url(HMAC-SHA256(secret, `v1:<id>`))). */

@@ -1,7 +1,6 @@
 import { formatDisplayShort } from '@/lib/date';
 import { IconCircleCheck, IconAlertTriangle, IconCircleX, IconRefresh } from '@tabler/icons-react';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { type Maintenance, type StatusView } from '@flarewatch/shared';
 import { countStatuses, getOverallStatus } from '@/lib/monitor-state';
@@ -21,21 +20,18 @@ const statusConfig = {
     title: 'All systems operational',
     bgClass: 'bg-status-operational-bg',
     iconClass: 'text-status-operational-text',
-    badgeVariant: 'default' as const,
   },
   degraded: {
     icon: IconAlertTriangle,
     title: 'Some systems are down',
     bgClass: 'bg-status-degraded-bg',
     iconClass: 'text-status-degraded-text',
-    badgeVariant: 'secondary' as const,
   },
   down: {
     icon: IconCircleX,
     title: 'All systems down',
     bgClass: 'bg-status-down-bg',
     iconClass: 'text-status-down-text',
-    badgeVariant: 'destructive' as const,
   },
 };
 
@@ -89,59 +85,81 @@ export function OverallStatus({ monitors, state, maintenances }: OverallStatusPr
 
   return (
     <Card size="flush" variant={status}>
-      <div className="flex items-center gap-2 px-3 py-2.5">
-        <div className={cn('rounded-full p-1.5', config.bgClass)}>
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-2 px-3 py-2.5">
+        <div
+          className={cn(
+            'flex h-6 w-9 items-center justify-center self-start rounded-full sm:h-7',
+            config.bgClass,
+          )}
+        >
           <StatusIcon className={cn('h-6 w-6', config.iconClass)} />
         </div>
 
-        <div className="flex-1">
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <h2 className="text-base sm:text-lg font-semibold text-balance text-foreground">
-              {title}
-              {Boolean(count) && (
-                <span className="whitespace-nowrap font-normal text-muted-foreground">
-                  {' '}
-                  {count}
-                </span>
-              )}
-            </h2>
-            <Badge variant={config.badgeVariant} className="shrink-0">
-              {[
-                `${up} up`,
-                late > 0 && `${late} late`,
-                slow > 0 && `${slow} slow`,
-                expiry > 0 && `${expiry} expiry warning${expiry === 1 ? '' : 's'}`,
-                `${down} down`,
-              ]
-                .filter(Boolean)
-                .join(' / ')}
-            </Badge>
-          </div>
-
-          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-            <p className="text-xs text-muted-foreground">
-              {isInitialState
-                ? 'Running first check...'
-                : `Last updated ${formatDisplayShort(state.lastUpdate)} (${secondsAgo}s ago)`}
-            </p>
-
-            {!isInitialState && isStale && (
-              <Tooltip>
-                <TooltipTrigger
-                  className={cn(
-                    'flex cursor-help items-center gap-1.5 text-xs text-status-degraded-text',
-                    !willRefreshSoon && 'animate-pulse',
-                  )}
-                >
-                  <IconRefresh className={cn('h-3.5 w-3.5', willRefreshSoon && 'animate-spin')} />
-                  <span>{getRefreshMessage()}</span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Page will auto-refresh when data is more than 5 minutes old
-                </TooltipContent>
-              </Tooltip>
+        <div className="flex flex-wrap items-baseline gap-2 sm:gap-3">
+          <h2 className="text-base sm:text-lg font-semibold text-balance text-foreground">
+            {title}
+            {Boolean(count) && (
+              <span className="whitespace-nowrap font-normal text-muted-foreground"> {count}</span>
             )}
-          </div>
+          </h2>
+          <p
+            role="group"
+            aria-label="Monitor status counts"
+            className="text-xs font-medium tabular-nums text-muted-foreground"
+          >
+            <span className={up > 0 ? 'text-status-operational-text' : 'text-muted-foreground'}>
+              {up} up
+            </span>
+            {late > 0 && (
+              <>
+                {' / '}
+                <span className="text-status-degraded-text">{late} late</span>
+              </>
+            )}
+            {slow > 0 && (
+              <>
+                {' / '}
+                <span className="text-status-degraded-text">{slow} slow</span>
+              </>
+            )}
+            {expiry > 0 && (
+              <>
+                {' / '}
+                <span className="text-status-degraded-text">
+                  {expiry} expiry warning{expiry === 1 ? '' : 's'}
+                </span>
+              </>
+            )}
+            {' / '}
+            <span className={down > 0 ? 'text-status-down-text' : 'text-muted-foreground'}>
+              {down} down
+            </span>
+          </p>
+        </div>
+
+        <div className="col-start-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <p className="text-xs text-muted-foreground">
+            {isInitialState
+              ? 'Running first check...'
+              : `Last updated ${formatDisplayShort(state.lastUpdate)} (${secondsAgo}s ago)`}
+          </p>
+
+          {!isInitialState && isStale && (
+            <Tooltip>
+              <TooltipTrigger
+                className={cn(
+                  'flex cursor-help items-center gap-1.5 text-xs text-status-degraded-text',
+                  !willRefreshSoon && 'animate-pulse',
+                )}
+              >
+                <IconRefresh className={cn('h-3.5 w-3.5', willRefreshSoon && 'animate-spin')} />
+                <span>{getRefreshMessage()}</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                Page will auto-refresh when data is more than 5 minutes old
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </div>
     </Card>

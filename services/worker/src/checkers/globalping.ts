@@ -101,6 +101,7 @@ function buildHttpRequest(target: MonitorTarget, config: GlobalPingConfig) {
 
   return {
     type: 'http',
+    timeout: 30,
     limit: 1,
     target: targetUrl.hostname,
     locations: config.magic ? [{ magic: config.magic }] : undefined,

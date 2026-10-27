@@ -112,6 +112,7 @@ describe('GlobalPingChecker', () => {
     expect(typeof body).toBe('string');
     expect(JSON.parse(body as string)).toEqual({
       type: 'http',
+      timeout: 30,
       limit: 1,
       target: 'example.com',
       locations: [{ magic: 'aws-us-east-1' }],

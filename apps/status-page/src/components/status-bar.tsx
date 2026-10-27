@@ -24,7 +24,8 @@ interface StatusBarSegmentProps {
 }
 
 function periodLabel(period: StatusPeriodData): string {
-  return `${formatDisplay(period.date, 'MMM d, yyyy HH:mm')} – ${formatDisplay(period.endDate, 'MMM d, yyyy HH:mm')}`;
+  const endTime = formatDisplay(period.endDate, 'HH:mm');
+  return `${formatDisplay(period.date, 'MMM d, yyyy HH:mm')} – ${endTime === '00:00' ? '24:00' : endTime}`;
 }
 
 function StatusBarSegment({ period, isMobile, onClick }: StatusBarSegmentProps) {

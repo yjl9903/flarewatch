@@ -56,11 +56,21 @@ describe('StatusBar', () => {
       },
     };
     render(<StatusBar monitorId="api" monitorName="API" state={snapshot} />);
-    const label = 'Jan 15, 2025 18:30 – Jan 15, 2025 20:30';
-    fireEvent.click(screen.getByRole('button', { name: `75.00% uptime from ${label}` }));
+    const label = 'Jan 15, 2025 18:00 – 20:00';
+    fireEvent.click(screen.getByRole('button', { name: `50.00% uptime from ${label}` }));
     expect(screen.getByRole('dialog', { name: `API incidents from ${label}` })).toBeTruthy();
-    expect(screen.getByText('[18:30 - 19:00]')).toBeTruthy();
+    expect(screen.getByText('[18:00 - 19:00]')).toBeTruthy();
     expect(screen.getByText('Request timed out')).toBeTruthy();
+  });
+
+  it('shows the date once and ends the final clock period at 24:00', () => {
+    const lastUpdate = Date.parse('2026-10-27T14:20:00Z') / 1000;
+    render(<StatusBar monitorId="api" state={{ ...state, lastUpdate }} />);
+    expect(
+      screen.getByRole('button', {
+        name: '100.00% uptime from Oct 27, 2026 22:00 – 24:00',
+      }),
+    ).toBeTruthy();
   });
 
   it('shows no mobile periods before it knows its width', () => {

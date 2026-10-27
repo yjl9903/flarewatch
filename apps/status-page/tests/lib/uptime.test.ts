@@ -184,12 +184,13 @@ describe('uptime utilities', () => {
     const nowSec = Date.parse('2025-01-15T12:30:00Z') / 1000;
     const hour = 3600;
 
-    it('covers exactly seven days in 84 consecutive two-hour periods ending at the snapshot', () => {
+    it('shows 84 clock-aligned periods including the current partial period', () => {
       const state = view({ test: { startedAt: nowSec - 10 * 86400 } }, nowSec);
       const periods = generateRecentStatus('test', state);
       expect(periods).toHaveLength(84);
-      expect(periods[0]?.date.getTime()).toBe((nowSec - 7 * 86400) * 1000);
-      expect(periods.at(-1)?.endDate.getTime()).toBe(nowSec * 1000);
+      expect(periods[0]?.date.getTime()).toBe((nowSec + 1.5 * hour - 7 * 86400) * 1000);
+      expect(periods.at(-1)?.date.toISOString()).toBe('2025-01-15T12:00:00.000Z');
+      expect(periods.at(-1)?.endDate.toISOString()).toBe('2025-01-15T14:00:00.000Z');
       for (const [index, period] of periods.entries()) {
         expect(period.endDate.getTime() - period.date.getTime()).toBe(2 * hour * 1000);
         expect(period.status).toBe('up');
@@ -197,6 +198,32 @@ describe('uptime utilities', () => {
       }
       vi.setSystemTime(new Date('2027-01-01T00:00:00Z'));
       expect(generateRecentStatus('test', state)).toEqual(periods);
+    });
+
+    it('keeps boundaries fixed within a period and advances at the next even hour', () => {
+      const state = view({ test: { startedAt: nowSec - 86400 } }, nowSec);
+      const boundaries = (lastUpdate: number) =>
+        generateRecentStatus('test', { ...state, lastUpdate }).map(({ date, endDate }) => [
+          date,
+          endDate,
+        ]);
+      expect(boundaries(nowSec + 60)).toEqual(boundaries(nowSec));
+      const atBoundary = nowSec + 1.5 * hour;
+      const latest = generateRecentStatus('test', { ...state, lastUpdate: atBoundary }).at(-1);
+      expect(latest?.date.getTime()).toBe(atBoundary * 1000);
+      expect(latest?.status).toBe('unknown');
+    });
+
+    it('starts a new period at midnight without counting future time as uptime', () => {
+      const midnight = Date.parse('2025-01-15T16:00:00Z') / 1000;
+      const state = view({ test: { startedAt: midnight - 86400 } }, midnight);
+      const periods = generateRecentStatus('test', state);
+      expect(periods.at(-2)?.status).toBe('up');
+      expect(periods.at(-1)).toMatchObject({
+        date: new Date('2025-01-15T16:00:00Z'),
+        endDate: new Date('2025-01-15T18:00:00Z'),
+        status: 'unknown',
+      });
     });
 
     it('splits a cross-period incident and clips ongoing downtime at the snapshot', () => {
@@ -210,37 +237,38 @@ describe('uptime utilities', () => {
         nowSec,
       );
       const periods = generateRecentStatus('test', state);
-      expect(periods.at(-3)?.downtime).toBe(0);
-      expect(periods.at(-2)).toMatchObject({ uptime: 50, downtime: hour * 1000 });
-      expect(periods.at(-1)).toMatchObject({ uptime: 0, downtime: 2 * hour * 1000 });
-      expect(periods.at(-2)?.incidents[0]).toMatchObject({ startTime: '17:30', endTime: '18:30' });
-      expect(periods.at(-1)?.incidents[0]).toMatchObject({ startTime: '18:30', endTime: '20:30' });
+      expect(periods.at(-3)).toMatchObject({ uptime: 75, downtime: (hour / 2) * 1000 });
+      expect(periods.at(-2)).toMatchObject({ uptime: 0, downtime: 2 * hour * 1000 });
+      expect(periods.at(-1)).toMatchObject({ uptime: 0, downtime: (hour / 2) * 1000 });
+      expect(periods.at(-2)?.incidents[0]).toMatchObject({ startTime: '18:00', endTime: '20:00' });
+      expect(periods.at(-1)?.incidents[0]).toMatchObject({ startTime: '20:00', endTime: '20:30' });
     });
 
     it('leaves older periods unknown and calculates the first period from monitor start', () => {
       const state = view(
         {
           test: {
-            startedAt: nowSec - hour,
-            incidents: [{ start: [nowSec - hour / 2], error: ['Timeout'] }],
+            startedAt: nowSec - 20 * 60,
+            incidents: [{ start: [nowSec - 10 * 60], error: ['Timeout'] }],
           },
         },
         nowSec,
       );
       const periods = generateRecentStatus('test', state);
       expect(periods.filter((period) => period.status === 'unknown')).toHaveLength(83);
-      expect(periods.at(-1)).toMatchObject({ uptime: 50, downtime: (hour / 2) * 1000 });
+      expect(periods.at(-1)).toMatchObject({ uptime: 50, downtime: 10 * 60 * 1000 });
     });
 
     it('does not count incidents outside the window or twice at a period boundary', () => {
-      const windowStart = nowSec - 7 * 86400;
+      const windowStart = nowSec + 1.5 * hour - 7 * 86400;
+      const currentStart = nowSec - hour / 2;
       const state = view(
         {
           test: {
             startedAt: windowStart - 86400,
             incidents: [
               { start: [windowStart - hour], end: windowStart + hour, error: ['Old timeout'] },
-              { start: [nowSec - 4 * hour], end: nowSec - 2 * hour, error: ['Timeout'] },
+              { start: [currentStart - 2 * hour], end: currentStart, error: ['Timeout'] },
             ],
           },
         },
@@ -279,13 +307,53 @@ describe('uptime utilities', () => {
         {
           test: {
             startedAt: nowSec - 86400,
-            incidents: [{ start: [nowSec - Number(seconds)], error: ['Timeout'] }],
+            incidents: [
+              {
+                start: [nowSec - hour / 2 - Number(seconds)],
+                end: nowSec - hour / 2,
+                error: ['Timeout'],
+              },
+            ],
           },
         },
         nowSec,
       );
-      expect(generateRecentStatus('test', state).at(-1)?.status).toBe(status);
+      expect(generateRecentStatus('test', state).at(-2)?.status).toBe(status);
     });
+  });
+
+  describe('clock periods in a fractional-offset zone', () => {
+    useDisplayTimeZone('Asia/Kathmandu');
+
+    it('aligns to local hours rather than UTC hours', () => {
+      const nowSec = Date.parse('2026-10-27T16:35:00Z') / 1000;
+      const state = view({ test: { startedAt: nowSec - 86400 } }, nowSec);
+      expect(generateRecentStatus('test', state).at(-1)).toMatchObject({
+        date: new Date('2026-10-27T16:15:00Z'),
+        endDate: new Date('2026-10-27T18:15:00Z'),
+        status: 'up',
+      });
+    });
+  });
+
+  describe('clock periods across daylight saving changes', () => {
+    useDisplayTimeZone('America/New_York');
+
+    it.each(['2026-03-09T02:30:00Z', '2026-11-02T03:30:00Z'])(
+      'keeps calendar boundaries contiguous at %s',
+      (timestamp) => {
+        const nowSec = Date.parse(timestamp) / 1000;
+        const state = view({ test: { startedAt: nowSec - 10 * 86400 } }, nowSec);
+        const periods = generateRecentStatus('test', state);
+        expect(periods).toHaveLength(84);
+        const latest = periods.at(-1)!;
+        expect(latest.endDate.getTime() - latest.date.getTime()).toBe(2 * 3600 * 1000);
+        for (const [index, period] of periods.entries()) {
+          expect(period.endDate.getTime()).toBeGreaterThan(period.date.getTime());
+          if (index > 0) expect(period.date).toEqual(periods[index - 1]?.endDate);
+        }
+      },
+    );
   });
 
   describe('generateAggregateDailyStatus', () => {

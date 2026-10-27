@@ -1,5 +1,5 @@
 import type { LatencySample, StatusView } from '@flarewatch/shared';
-import { formatDisplay, startOfDisplayDay } from './date';
+import { formatDisplay, startOfDisplayDay, toDisplayDate } from './date';
 import { STATUS_BAR, TIME_MS, UPTIME_DAYS, UPTIME_THRESHOLDS } from './constants';
 
 const MIN_MONITOR_AGE_SECONDS = 60;
@@ -203,14 +203,22 @@ export interface StatusPeriodData extends DailyStatusData {
   endDate: Date;
 }
 
-/** A rolling seven-day window ending at the snapshot, split into 84 two-hour periods. */
+/** 84 clock-aligned periods in the page zone, including the current partial period. */
 export function generateRecentStatus(monitorId: string, state: StatusView): StatusPeriodData[] {
-  const endMs = (getNowSeconds(state) ?? 0) * 1000;
-  const periodMs = STATUS_BAR.HOURS_PER_SEGMENT * TIME_MS.HOUR;
-  const count = (STATUS_BAR.DAYS * TIME_MS.DAY) / periodMs;
+  const now = toDisplayDate(new Date((getNowSeconds(state) ?? 0) * 1000));
+  const hours = STATUS_BAR.HOURS_PER_SEGMENT;
+  const currentHour = Math.floor(now.getHours() / hours) * hours;
+  const count = (STATUS_BAR.DAYS * TIME_MS.DAY) / (hours * TIME_MS.HOUR);
   return Array.from({ length: count }, (_, index) => {
-    const date = new Date(endMs - (count - index) * periodMs);
-    const endDate = new Date(date.getTime() + periodMs);
+    const clockHour = currentHour - (count - index - 1) * hours;
+    const day = startOfDisplayDay(now, Math.floor(clockHour / 24));
+    const hour = ((clockHour % 24) + 24) % 24;
+    const start = toDisplayDate(day);
+    const end = toDisplayDate(day);
+    start.setHours(hour, 0, 0, 0);
+    end.setHours(hour + hours, 0, 0, 0);
+    const date = new Date(start.getTime());
+    const endDate = new Date(end.getTime());
     return { ...generatePeriodStatus(monitorId, state, date, endDate), endDate };
   });
 }

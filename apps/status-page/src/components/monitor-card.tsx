@@ -2,7 +2,7 @@ import type { ComponentProps, ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import { IconExternalLink, IconChevronRight, IconEyeOff } from '@tabler/icons-react';
 import type { HeartbeatStatus } from '@flarewatch/shared';
-import { UPTIME_DAYS } from '@/lib/constants';
+import { STATUS_BAR } from '@/lib/constants';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { UptimeBadge } from '@/components/ui/uptime-badge';
@@ -580,7 +580,7 @@ export function MonitorDetail({
         ) : (
           <>
             <h2 className="mb-2 text-xs font-medium text-muted-foreground">
-              {`Last ${UPTIME_DAYS} days`}
+              {`Last ${STATUS_BAR.DAYS} days`}
             </h2>
             <StatusBar monitorId={monitor.id} monitorName={monitor.name} state={state} />
             {!monitor.hideLatencyChart && (

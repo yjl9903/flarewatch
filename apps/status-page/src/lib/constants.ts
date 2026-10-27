@@ -41,6 +41,8 @@ export const COOKIE_NAMES = {
 export const PAGE_CONTAINER_CLASSES = 'container mx-auto max-w-5xl px-4 py-6';
 
 export const STATUS_BAR = {
+  DAYS: 7,
+  HOURS_PER_SEGMENT: 2,
   MOBILE_BAR_WIDTH: 12, // w-2.5 (10px) + gap-0.5 (2px)
 } as const;
 

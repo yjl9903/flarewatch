@@ -6,6 +6,7 @@ import {
   formatUptimeDisplay,
   generateAggregateDailyStatus,
   generateDailyStatus,
+  generateRecentStatus,
   getMonitorError,
 } from '@/lib/uptime';
 import { getDateKey } from '@/lib/date';
@@ -176,6 +177,114 @@ describe('uptime utilities', () => {
       const yesterday = generateDailyStatus('test', state).at(-2);
 
       expect(yesterday?.status).toBe(expected);
+    });
+  });
+
+  describe('generateRecentStatus', () => {
+    const nowSec = Date.parse('2025-01-15T12:30:00Z') / 1000;
+    const hour = 3600;
+
+    it('covers exactly seven days in 84 consecutive two-hour periods ending at the snapshot', () => {
+      const state = view({ test: { startedAt: nowSec - 10 * 86400 } }, nowSec);
+      const periods = generateRecentStatus('test', state);
+      expect(periods).toHaveLength(84);
+      expect(periods[0]?.date.getTime()).toBe((nowSec - 7 * 86400) * 1000);
+      expect(periods.at(-1)?.endDate.getTime()).toBe(nowSec * 1000);
+      for (const [index, period] of periods.entries()) {
+        expect(period.endDate.getTime() - period.date.getTime()).toBe(2 * hour * 1000);
+        expect(period.status).toBe('up');
+        if (index > 0) expect(period.date).toEqual(periods[index - 1]?.endDate);
+      }
+      vi.setSystemTime(new Date('2027-01-01T00:00:00Z'));
+      expect(generateRecentStatus('test', state)).toEqual(periods);
+    });
+
+    it('splits a cross-period incident and clips ongoing downtime at the snapshot', () => {
+      const state = view(
+        {
+          test: {
+            startedAt: nowSec - 10 * 86400,
+            incidents: [{ start: [nowSec - 3 * hour], error: ['Timeout'] }],
+          },
+        },
+        nowSec,
+      );
+      const periods = generateRecentStatus('test', state);
+      expect(periods.at(-3)?.downtime).toBe(0);
+      expect(periods.at(-2)).toMatchObject({ uptime: 50, downtime: hour * 1000 });
+      expect(periods.at(-1)).toMatchObject({ uptime: 0, downtime: 2 * hour * 1000 });
+      expect(periods.at(-2)?.incidents[0]).toMatchObject({ startTime: '17:30', endTime: '18:30' });
+      expect(periods.at(-1)?.incidents[0]).toMatchObject({ startTime: '18:30', endTime: '20:30' });
+    });
+
+    it('leaves older periods unknown and calculates the first period from monitor start', () => {
+      const state = view(
+        {
+          test: {
+            startedAt: nowSec - hour,
+            incidents: [{ start: [nowSec - hour / 2], error: ['Timeout'] }],
+          },
+        },
+        nowSec,
+      );
+      const periods = generateRecentStatus('test', state);
+      expect(periods.filter((period) => period.status === 'unknown')).toHaveLength(83);
+      expect(periods.at(-1)).toMatchObject({ uptime: 50, downtime: (hour / 2) * 1000 });
+    });
+
+    it('does not count incidents outside the window or twice at a period boundary', () => {
+      const windowStart = nowSec - 7 * 86400;
+      const state = view(
+        {
+          test: {
+            startedAt: windowStart - 86400,
+            incidents: [
+              { start: [windowStart - hour], end: windowStart + hour, error: ['Old timeout'] },
+              { start: [nowSec - 4 * hour], end: nowSec - 2 * hour, error: ['Timeout'] },
+            ],
+          },
+        },
+        nowSec,
+      );
+      const periods = generateRecentStatus('test', state);
+      expect(periods[0]?.uptime).toBe(50);
+      expect(periods.at(-2)?.uptime).toBe(0);
+      expect(periods.at(-1)?.uptime).toBe(100);
+      expect(periods.reduce((total, period) => total + period.downtime, 0)).toBe(3 * hour * 1000);
+    });
+
+    it('keeps missing data and the first sixty seconds unknown', () => {
+      for (const state of [
+        view({}, 0),
+        view({}, nowSec),
+        view({ test: { startedAt: nowSec - 59 } }, nowSec),
+      ]) {
+        const periods = generateRecentStatus('test', state);
+        expect(periods).toHaveLength(84);
+        expect(periods.every((period) => period.status === 'unknown')).toBe(true);
+      }
+      expect(
+        generateRecentStatus('test', view({ test: { startedAt: nowSec - 60 } }, nowSec)).at(-1)
+          ?.status,
+      ).toBe('up');
+    });
+
+    it.each([
+      [7, 'up'],
+      [8, 'partial'],
+      [72, 'partial'],
+      [73, 'down'],
+    ])('keeps the existing color thresholds for %i seconds of downtime', (seconds, status) => {
+      const state = view(
+        {
+          test: {
+            startedAt: nowSec - 86400,
+            incidents: [{ start: [nowSec - Number(seconds)], error: ['Timeout'] }],
+          },
+        },
+        nowSec,
+      );
+      expect(generateRecentStatus('test', state).at(-1)?.status).toBe(status);
     });
   });
 

@@ -195,7 +195,7 @@ test('a row opens the monitor page with its history and chart', async ({ page })
     'href',
     'https://developers.cloudflare.com/',
   );
-  await expect(page.getByRole('heading', { name: 'Last 90 days' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Last 7 days' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Response times (ms)' })).toBeVisible();
   await expect(page.getByTestId('latency-chart')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Check now' })).toHaveCount(0);

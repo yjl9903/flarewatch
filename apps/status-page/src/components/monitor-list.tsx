@@ -191,7 +191,6 @@ export function MonitorList({
               const nextCollapsed = activeGroupKeys.filter((key) => !open.has(key));
               setCollapsedGroups(nextCollapsed);
             }}
-            variant="card"
           >
             {activeGroups.map(({ key, name, monitors: groupMonitors }) => {
               const count = groupMonitors.length;

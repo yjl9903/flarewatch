@@ -11,14 +11,9 @@ interface HistorySearch {
   type?: 'all' | 'incident' | 'maintenance';
 }
 
-function getCurrentMonth(): string {
-  // Use UTC to avoid server/client timezone hydration mismatches.
-  return new Date().toISOString().slice(0, 7);
-}
-
 export const Route = createFileRoute('/history')({
   validateSearch: (search): HistorySearch => {
-    const month = isValidYearMonth(search.month) ? search.month : getCurrentMonth();
+    const month = isValidYearMonth(search.month) ? search.month : undefined;
     const monitor = isNonEmptyString(search.monitor) ? search.monitor : undefined;
     const type = search.type === 'incident' || search.type === 'maintenance' ? search.type : 'all';
     return { month, monitor, type };

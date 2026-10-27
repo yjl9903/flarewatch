@@ -1,8 +1,9 @@
+import { formatDisplayShort } from '@/lib/date';
 import { IconCircleCheck, IconAlertTriangle, IconCircleX, IconRefresh } from '@tabler/icons-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { formatUtcShort, type Maintenance, type StatusView } from '@flarewatch/shared';
+import { type Maintenance, type StatusView } from '@flarewatch/shared';
 import { countStatuses, getOverallStatus } from '@/lib/monitor-state';
 import type { PublicMonitor } from '@/lib/public-view';
 import { useAutoRefresh } from '@/lib/hooks/use-auto-refresh';
@@ -121,7 +122,7 @@ export function OverallStatus({ monitors, state, maintenances }: OverallStatusPr
             <p className="text-xs text-muted-foreground">
               {isInitialState
                 ? 'Running first check...'
-                : `Last updated ${formatUtcShort(state.lastUpdate)} (${secondsAgo}s ago)`}
+                : `Last updated ${formatDisplayShort(state.lastUpdate)} (${secondsAgo}s ago)`}
             </p>
 
             {!isInitialState && isStale && (

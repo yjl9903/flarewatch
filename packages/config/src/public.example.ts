@@ -9,6 +9,9 @@ export const pageConfig: PageConfig = {
   // Page title (appears in browser tab and header)
   title: 'FlareWatch Demo',
 
+  // Displayed times, calendar days and date/time inputs (IANA zone; defaults to UTC).
+  // timeZone: 'Asia/Shanghai',
+
   // Optional: 'private' shows visitors only the sign-in page (needs a password or a provider to sign in).
   // visibility: 'private',
 

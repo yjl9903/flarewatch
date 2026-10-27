@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { getDisplayTimeZone } from '@/lib/date';
 import {
   normalizeMaintenance,
   type Maintenance,
@@ -36,7 +37,7 @@ function formFrom(maintenance?: Maintenance): MaintenanceFormData {
     weekdays: repeat?.weekdays ?? [],
     dayOfMonth: repeat?.dayOfMonth?.toString() ?? '',
     until: repeat?.until === undefined ? undefined : new Date(repeat.until),
-    timeZone: repeat?.timeZone ?? '',
+    timeZone: repeat ? (repeat.timeZone ?? 'UTC') : getDisplayTimeZone(),
   };
 }
 

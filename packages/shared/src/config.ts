@@ -456,6 +456,7 @@ function loopFrom(start: string, byId: Map<string, DependencyNode>): string[] | 
 const statusPageSchema: z.ZodMiniType<SchemaOutput<PageConfig>> = z.strictObject(
   {
     title: z.optional(z.string()),
+    timeZone: z.optional(timeZone('statusPage.timeZone')),
     visibility: z.optional(z.enum(['public', 'private'])),
     links: z.optional(
       z.array(

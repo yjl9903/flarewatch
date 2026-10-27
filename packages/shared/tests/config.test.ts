@@ -228,6 +228,7 @@ describe('config validation', () => {
     const config = createRuntimeConfig({
       statusPage: {
         title: 'Status',
+        timeZone: 'Asia/Shanghai',
         visibility: 'private',
         links: [{ label: 'Home', link: 'https://example.com', highlight: true }],
         group: { APIs: ['api'] },
@@ -238,6 +239,12 @@ describe('config validation', () => {
     });
 
     expect(configIssues(config)).toEqual([]);
+  });
+
+  it('rejects an invalid status page time zone', () => {
+    expect(
+      configIssues(createRuntimeConfig({ statusPage: { timeZone: 'Not/A_Zone' } })).join(),
+    ).toContain('statusPage.timeZone');
   });
 
   it('names an unknown status page field', () => {

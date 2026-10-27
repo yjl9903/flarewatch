@@ -1,12 +1,21 @@
-import { describe, it, expect } from 'vite-plus/test';
+import { pageConfig } from '@flarewatch/config';
+import { useDisplayTimeZone } from '../helpers/display-time-zone';
+import { describe, it, expect, vi } from 'vite-plus/test';
 import {
   isValidYearMonth,
   shiftYearMonth,
-  getUtcMonthBounds,
+  getDisplayMonthBounds,
   generateCalendarGrids,
   formatDuration,
   formatCadence,
+  formatDisplay,
+  formatDisplayShort,
+  getDateKey,
+  startOfDisplayDay,
+  formatDisplayZone,
 } from '@/lib/date';
+
+useDisplayTimeZone('Asia/Shanghai');
 
 describe('isValidYearMonth', () => {
   it('accepts valid year-month strings', () => {
@@ -48,20 +57,20 @@ describe('shiftYearMonth', () => {
   });
 });
 
-describe('getUtcMonthBounds', () => {
+describe('getDisplayMonthBounds', () => {
   it('returns correct month boundaries', () => {
-    const { monthStart, monthEnd } = getUtcMonthBounds('2024-01');
-    expect(monthStart.toISOString()).toBe('2024-01-01T00:00:00.000Z');
-    expect(monthEnd.toISOString()).toBe('2024-01-31T23:59:59.999Z');
+    const { monthStart, monthEnd } = getDisplayMonthBounds('2024-01');
+    expect(monthStart.toISOString()).toBe('2023-12-31T16:00:00.000Z');
+    expect(monthEnd.toISOString()).toBe('2024-01-31T15:59:59.999Z');
   });
 
   it('handles February in leap year', () => {
-    const { monthEnd } = getUtcMonthBounds('2024-02');
+    const { monthEnd } = getDisplayMonthBounds('2024-02');
     expect(monthEnd.getUTCDate()).toBe(29);
   });
 
   it('handles February in non-leap year', () => {
-    const { monthEnd } = getUtcMonthBounds('2023-02');
+    const { monthEnd } = getDisplayMonthBounds('2023-02');
     expect(monthEnd.getUTCDate()).toBe(28);
   });
 });
@@ -87,20 +96,24 @@ describe('generateCalendarGrids', () => {
       last: [29, 30, null, null, null, null, null],
     },
   ])(
-    'aligns $month Monday-first and marks UTC today and future days',
+    'aligns $month Monday-first and marks UTC+8 today and future days',
     ({ month, weeks, first, last }) => {
       const [grid] = generateCalendarGrids(new Date(`${month}-15T23:59:59Z`), 1);
 
       expect(grid?.yearMonth).toBe(month);
       expect(grid?.weeks).toHaveLength(weeks);
       expect(grid?.weeks.every((week) => week.length === 7)).toBe(true);
-      expect(grid?.weeks[0]?.map((day) => day?.date.getUTCDate() ?? null)).toEqual(first);
-      expect(grid?.weeks.at(-1)?.map((day) => day?.date.getUTCDate() ?? null)).toEqual(last);
+      expect(
+        grid?.weeks[0]?.map((day) => (day ? Number(formatDisplay(day.date, 'd')) : null)),
+      ).toEqual(first);
+      expect(
+        grid?.weeks.at(-1)?.map((day) => (day ? Number(formatDisplay(day.date, 'd')) : null)),
+      ).toEqual(last);
       const days = grid?.weeks.flat().filter((day) => day !== null) ?? [];
       expect(days.filter((day) => day.isToday).map((day) => day.date.toISOString())).toEqual([
-        `${month}-15T00:00:00.000Z`,
+        `${month}-15T16:00:00.000Z`,
       ]);
-      for (const day of days) expect(day.isFuture).toBe(day.date.getUTCDate() > 15);
+      for (const day of days) expect(day.isFuture).toBe(Number(formatDisplay(day.date, 'd')) > 16);
     },
   );
 
@@ -110,7 +123,13 @@ describe('generateCalendarGrids', () => {
     expect(grids.map((grid) => grid.yearMonth)).toEqual(['2024-11', '2024-12', '2025-01']);
     expect(grids.map((grid) => grid.weeks.flat().filter(Boolean).length)).toEqual([30, 31, 31]);
     expect(
-      grids.map((grid) => grid.weeks.flat().find(Boolean)?.date.toISOString().slice(0, 10)),
+      grids.map(
+        (grid) =>
+          grid.weeks
+            .flat()
+            .filter((day) => day !== null)
+            .map((day) => getDateKey(day.date))[0],
+      ),
     ).toEqual(['2024-11-01', '2024-12-01', '2025-01-01']);
   });
 });
@@ -171,5 +190,57 @@ describe('formatDuration', () => {
   it('respects minUnit option', () => {
     expect(formatDuration(30000, { minUnit: 'minutes' })).toBe('0m');
     expect(formatDuration(90000, { minUnit: 'minutes' })).toBe('1m');
+  });
+});
+
+describe('configured display time', () => {
+  it.each(['UTC', 'America/Los_Angeles', 'Asia/Tokyo'])(
+    'keeps the UTC+8 date across year boundaries on a %s host',
+    (hostZone) => {
+      vi.stubEnv('TZ', hostZone);
+      const instant = new Date('2026-12-31T16:05:00Z');
+      expect(formatDisplayShort(instant.getTime() / 1000)).toBe('Jan 1, 00:05 UTC+8');
+      expect(getDateKey(instant)).toBe('2027-01-01');
+      expect(formatDisplay(instant, 'HH:mm')).toBe('00:05');
+      const [grid] = generateCalendarGrids(instant, 1);
+      expect(grid?.yearMonth).toBe('2027-01');
+      expect(
+        grid?.weeks
+          .flat()
+          .find((day) => day?.isToday)
+          ?.date.toISOString(),
+      ).toBe('2026-12-31T16:00:00.000Z');
+    },
+  );
+});
+
+describe('other configured time zones', () => {
+  it('defaults to UTC when no time zone is set', () => {
+    delete pageConfig.timeZone;
+    expect(formatDisplayShort(Date.parse('2026-12-31T16:05:00Z') / 1000)).toBe('Dec 31, 16:05 UTC');
+  });
+
+  it('uses 23- and 25-hour days at daylight saving transitions', () => {
+    pageConfig.timeZone = 'America/New_York';
+    for (const [instant, hours] of [
+      ['2026-03-08T12:00:00Z', 23],
+      ['2026-11-01T12:00:00Z', 25],
+    ] as const) {
+      const date = new Date(instant);
+      const start = startOfDisplayDay(date);
+      const next = startOfDisplayDay(date, 1);
+      expect(next.getTime() - start.getTime()).toBe(hours * 60 * 60 * 1000);
+      expect(formatDisplay(start, 'HH:mm')).toBe('00:00');
+      expect(formatDisplay(next, 'HH:mm')).toBe('00:00');
+    }
+    expect(formatDisplayZone(new Date('2026-01-01T12:00:00Z'))).toBe('UTC-5');
+    expect(formatDisplayZone(new Date('2026-07-01T12:00:00Z'))).toBe('UTC-4');
+  });
+
+  it('labels a fractional-hour zone without rounding it', () => {
+    pageConfig.timeZone = 'Asia/Kolkata';
+    expect(formatDisplayShort(Date.parse('2026-10-27T12:00:00Z') / 1000)).toBe(
+      'Oct 27, 17:30 UTC+5:30',
+    );
   });
 });

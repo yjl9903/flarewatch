@@ -3,9 +3,12 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vite-plus/test';
 
+import { useDisplayTimeZone } from '../helpers/display-time-zone';
 import { MonthPicker } from '@/components/ui/month-picker';
 
 describe('MonthPicker', () => {
+  useDisplayTimeZone('America/Los_Angeles');
+
   it('selects a month from the displayed year', async () => {
     const changes: string[] = [];
 

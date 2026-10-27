@@ -1,3 +1,4 @@
+import { useDisplayTimeZone } from '../helpers/display-time-zone';
 import { describe, it, expect, beforeEach, vi } from 'vite-plus/test';
 import type { MonitorView, StatusView } from '@flarewatch/shared';
 import {
@@ -7,7 +8,10 @@ import {
   generateDailyStatus,
   getMonitorError,
 } from '@/lib/uptime';
+import { getDateKey } from '@/lib/date';
 import { statusView } from '../helpers/status-view';
+
+useDisplayTimeZone('Asia/Shanghai');
 
 const view = (
   monitors: Record<string, Partial<MonitorView>>,
@@ -106,6 +110,42 @@ describe('uptime utilities', () => {
   });
 
   describe('generateDailyStatus', () => {
+    it('splits an incident at midnight in the page zone', () => {
+      const nowSec = Date.parse('2026-10-31T17:00:00Z') / 1000;
+      const state = view(
+        {
+          test: {
+            startedAt: nowSec - 86400 * 3,
+            incidents: [
+              {
+                start: [Date.parse('2026-10-31T15:30:00Z') / 1000],
+                end: Date.parse('2026-10-31T16:30:00Z') / 1000,
+                error: ['Timeout'],
+              },
+            ],
+          },
+        },
+        nowSec,
+      );
+      const days = generateDailyStatus('test', state);
+      const yesterday = days.at(-2)!;
+      const today = days.at(-1)!;
+      expect(getDateKey(yesterday.date)).toBe('2026-10-31');
+      expect(getDateKey(today.date)).toBe('2026-11-01');
+      expect(yesterday.downtime).toBe(30 * 60 * 1000);
+      expect(today.downtime).toBe(30 * 60 * 1000);
+      expect(today.uptime).toBe(50);
+      expect(yesterday.incidents[0]).toMatchObject({ startTime: '23:30', endTime: '00:00' });
+      expect(today.incidents[0]).toMatchObject({ startTime: '00:00', endTime: '00:30' });
+    });
+
+    it('keeps empty data deterministic before the first check', () => {
+      const state = view({}, 0);
+      const before = generateDailyStatus('test', state);
+      vi.setSystemTime(new Date('2027-01-01T17:00:00Z'));
+      expect(generateDailyStatus('test', state)).toEqual(before);
+    });
+
     it('marks days before monitor start unknown', () => {
       const nowSec = Math.floor(Date.now() / 1000);
       const state = view({ test: { startedAt: nowSec - 3600 } });
@@ -142,7 +182,7 @@ describe('uptime utilities', () => {
   describe('generateAggregateDailyStatus', () => {
     const now = new Date('2025-01-15T12:00:00Z');
     const nowSec = Math.floor(now.getTime() / 1000);
-    const dayStart = new Date('2025-01-05T00:00:00Z').getTime() / 1000;
+    const dayStart = new Date('2025-01-05T00:00:00+08:00').getTime() / 1000;
 
     it('prefers down over partial and skips unknown monitors', () => {
       const state = view(

@@ -2,7 +2,6 @@ import type { ComponentProps, ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import { IconExternalLink, IconChevronRight, IconEyeOff } from '@tabler/icons-react';
 import type { HeartbeatStatus } from '@flarewatch/shared';
-import { formatUtcShort } from '@flarewatch/shared';
 import { UPTIME_DAYS } from '@/lib/constants';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -22,7 +21,7 @@ import type { AdminMonitor } from '@/lib/public-view';
 import { deriveHeartbeat, type HeartbeatView } from '@/lib/heartbeat';
 import { monitorState, type MonitorState } from '@/lib/monitor-state';
 import { formatColoLabel } from '@/lib/cf-colos';
-import { formatCadence, formatDuration } from '@/lib/date';
+import { formatDisplayShort, formatCadence, formatDuration } from '@/lib/date';
 import { formatUptimeDisplay, generateDailyStatus } from '@/lib/uptime';
 import { LatencyChart } from '@/components/latency-chart';
 import { cn } from '@/lib/utils';
@@ -46,7 +45,7 @@ function UtcTime({ sec, className }: { sec: number; className?: string }) {
       className={cn('whitespace-nowrap', className)}
       dateTime={new Date(sec * 1000).toISOString()}
     >
-      {formatUtcShort(sec)}
+      {formatDisplayShort(sec)}
     </time>
   );
 }
@@ -249,7 +248,7 @@ function rowLabel({
     return `${name}, ${status}, ${uptime}`;
   }
 
-  return `${name}, ${status}, last run ${formatUtcShort(heartbeat.lastRunSec)}, next expected by ${formatUtcShort(heartbeat.deadlineSec)}`;
+  return `${name}, ${status}, last run ${formatDisplayShort(heartbeat.lastRunSec)}, next expected by ${formatDisplayShort(heartbeat.deadlineSec)}`;
 }
 
 function MonitorSubLines({
@@ -290,7 +289,7 @@ function MonitorSubLines({
       )}
       {overdueDeadline !== undefined && !operator && (
         <p className="text-xs text-status-down-text mt-0.5">
-          {`Overdue, was expected by ${formatUtcShort(overdueDeadline)}`}
+          {`Overdue, was expected by ${formatDisplayShort(overdueDeadline)}`}
         </p>
       )}
       <MonitorTimingLines heartbeat={heartbeat} latency={latency} slowOverMs={slowOverMs} />

@@ -48,15 +48,8 @@ export function UptimeCalendar({ monitors, state, selectedMonth }: UptimeCalenda
   const nameMap = new Map(monitors.map((m) => [m.id, m.name]));
   const aggregatedDays = generateAggregateDailyStatus(ids, nameMap, state);
 
-  const dayMs =
-    state.lastUpdate <= 0
-      ? Date.UTC(2000, 0, 1)
-      : (() => {
-          const d = new Date(state.lastUpdate * 1000);
-          return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-        })();
-
-  const calendarGrids = generateCalendarGrids(new Date(dayMs), MONTHS_PER_PAGE, selectedMonth);
+  const now = new Date(state.lastUpdate > 0 ? state.lastUpdate * 1000 : 0);
+  const calendarGrids = generateCalendarGrids(now, MONTHS_PER_PAGE, selectedMonth);
 
   const dataMap = new Map(aggregatedDays.map((day) => [getDateKey(day.date), day]));
 

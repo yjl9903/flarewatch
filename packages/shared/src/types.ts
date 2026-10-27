@@ -1,4 +1,6 @@
 export type PageConfig = {
+  /** IANA time zone for displayed dates, calendars and date/time inputs. Defaults to UTC. */
+  timeZone?: string;
   title?: string;
   links?: PageConfigLink[];
   group?: PageConfigGroup;

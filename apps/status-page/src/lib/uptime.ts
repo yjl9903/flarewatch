@@ -1,5 +1,5 @@
 import type { LatencySample, StatusView } from '@flarewatch/shared';
-import { formatUtc } from './date';
+import { formatDisplay, startOfDisplayDay } from './date';
 import { UPTIME_DAYS, UPTIME_THRESHOLDS } from './constants';
 
 const MIN_MONITOR_AGE_SECONDS = 60;
@@ -118,9 +118,7 @@ function createUnknownDay(date: Date): DailyStatusData {
 function generateUnknownDays(baseDate: Date): DailyStatusData[] {
   const days: DailyStatusData[] = [];
   for (let i = UPTIME_DAYS - 1; i >= 0; i--) {
-    const date = new Date(baseDate);
-    date.setUTCDate(date.getUTCDate() - i);
-    date.setUTCHours(0, 0, 0, 0);
+    const date = startOfDisplayDay(baseDate, -i);
     days.push(createUnknownDay(date));
   }
   return days;
@@ -131,9 +129,7 @@ export function generateDailyStatus(monitorId: string, state: StatusView): Daily
   const nowSec = getNowSeconds(state);
 
   if (nowSec === null) {
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-    return generateUnknownDays(today);
+    return generateUnknownDays(new Date(0));
   }
 
   const nowMs = nowSec * 1000;
@@ -146,12 +142,10 @@ export function generateDailyStatus(monitorId: string, state: StatusView): Daily
   }
 
   for (let i = UPTIME_DAYS - 1; i >= 0; i--) {
-    const date = new Date(now);
-    date.setUTCDate(date.getUTCDate() - i);
-    date.setUTCHours(0, 0, 0, 0);
+    const date = startOfDisplayDay(now, -i);
 
     const dayStart = date.getTime();
-    const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+    const dayEnd = startOfDisplayDay(date, 1).getTime();
     const dayStartSec = Math.floor(dayStart / 1000);
     const dayEndSec = Math.floor(dayEnd / 1000);
 
@@ -194,8 +188,8 @@ export function generateDailyStatus(monitorId: string, state: StatusView): Daily
 
             dayIncidents.push({
               startSec: partStart,
-              startTime: formatUtc(new Date(clampedStart * 1000), 'HH:mm'),
-              endTime: formatUtc(new Date(clampedEnd * 1000), 'HH:mm'),
+              startTime: formatDisplay(new Date(clampedStart * 1000), 'HH:mm'),
+              endTime: formatDisplay(new Date(clampedEnd * 1000), 'HH:mm'),
               error: errorMsg ?? 'Unknown error',
             });
           }

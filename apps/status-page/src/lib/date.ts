@@ -1,4 +1,36 @@
 import { format } from 'date-fns';
+import { TZDate } from 'react-day-picker';
+import { pageConfig } from '@flarewatch/config';
+
+export function getDisplayTimeZone(): string {
+  return pageConfig.timeZone ?? 'UTC';
+}
+
+/** Explicit page zone: rendering never depends on the server or browser's local zone. */
+export function toDisplayDate(date: Date): TZDate {
+  return new TZDate(date.getTime(), getDisplayTimeZone());
+}
+
+/** A local calendar day boundary, including when the configured zone observes DST. */
+export function startOfDisplayDay(date: Date, offsetDays = 0): Date {
+  const local = toDisplayDate(date);
+  local.setDate(local.getDate() + offsetDays);
+  local.setHours(0, 0, 0, 0);
+  return new Date(local.getTime());
+}
+
+export function formatDisplayZone(date: Date): string {
+  const offset = -toDisplayDate(date).getTimezoneOffset();
+  if (offset === 0) return 'UTC';
+  const hours = Math.floor(Math.abs(offset) / 60);
+  const minutes = Math.abs(offset) % 60;
+  return `UTC${offset > 0 ? '+' : '-'}${hours}${minutes ? `:${String(minutes).padStart(2, '0')}` : ''}`;
+}
+
+export function formatDisplayShort(seconds: number): string {
+  const date = new Date(seconds * 1000);
+  return `${formatDisplay(date, 'MMM d, HH:mm')} ${formatDisplayZone(date)}`;
+}
 
 export function parseYearMonth(value: string) {
   const [yearStr = '1970', monthStr = '01'] = value.split('-');
@@ -22,24 +54,22 @@ export function shiftYearMonth(value: string, deltaMonths: number): string {
   return shifted.toISOString().slice(0, 7);
 }
 
-export function getUtcMonthBounds(value: string) {
+export function getDisplayMonthBounds(value: string) {
   const { year, month } = parseYearMonth(value);
   const monthIndex = month - 1;
-  const monthStart = new Date(Date.UTC(year, monthIndex, 1, 0, 0, 0, 0));
-  const monthEnd = new Date(Date.UTC(year, monthIndex + 1, 0, 23, 59, 59, 999));
+  const monthStart = new Date(new TZDate(year, monthIndex, 1, getDisplayTimeZone()).getTime());
+  const monthEnd = new Date(
+    new TZDate(year, monthIndex + 1, 1, getDisplayTimeZone()).getTime() - 1,
+  );
   return { monthStart, monthEnd };
 }
 
-function toUtcViewDate(date: Date): Date {
-  return new Date(date.getTime() + date.getTimezoneOffset() * 60_000);
-}
-
-export function formatUtc(date: Date, pattern: string): string {
-  return format(toUtcViewDate(date), pattern);
+export function formatDisplay(date: Date, pattern: string): string {
+  return format(toDisplayDate(date), pattern);
 }
 
 export function getDateKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  return formatDisplay(date, 'yyyy-MM-dd');
 }
 
 export interface CalendarDay {
@@ -55,17 +85,17 @@ export interface CalendarMonthGrid {
 }
 
 /**
- * Calendar window ends at `endYearMonth` (or the month of `nowUtc`); weeks are Mon–Sun, `null`-padded.
+ * Calendar window ends at `endYearMonth` (or the month of `now`); weeks are Mon–Sun, `null`-padded.
  */
 export function generateCalendarGrids(
-  nowUtc: Date,
+  now: Date,
   monthCount: number,
   endYearMonth?: string,
 ): CalendarMonthGrid[] {
-  const todayYear = nowUtc.getUTCFullYear();
-  const todayMonth = nowUtc.getUTCMonth();
-  const todayDate = nowUtc.getUTCDate();
-  const todayMidnight = Date.UTC(todayYear, todayMonth, todayDate);
+  const wallNow = toDisplayDate(now);
+  const todayYear = wallNow.getFullYear();
+  const todayMonth = wallNow.getMonth();
+  const todayMidnight = startOfDisplayDay(now).getTime();
 
   let endYear = todayYear;
   let endMonth = todayMonth;
@@ -78,13 +108,13 @@ export function generateCalendarGrids(
   const grids: CalendarMonthGrid[] = [];
 
   for (let i = monthCount - 1; i >= 0; i--) {
-    const firstOfMonth = new Date(Date.UTC(endYear, endMonth - i, 1));
-    const year = firstOfMonth.getUTCFullYear();
-    const month = firstOfMonth.getUTCMonth();
+    const firstOfMonth = new TZDate(endYear, endMonth - i, 1, getDisplayTimeZone());
+    const year = firstOfMonth.getFullYear();
+    const month = firstOfMonth.getMonth();
     const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
 
     // Mon=0, Tue=1, ..., Sun=6
-    const firstDayOfWeek = (firstOfMonth.getUTCDay() + 6) % 7;
+    const firstDayOfWeek = (firstOfMonth.getDay() + 6) % 7;
 
     const weeks: (CalendarDay | null)[][] = [];
     let currentWeek: (CalendarDay | null)[] = [];
@@ -94,7 +124,7 @@ export function generateCalendarGrids(
     }
 
     for (let d = 1; d <= daysInMonth; d++) {
-      const date = new Date(Date.UTC(year, month, d));
+      const date = new Date(new TZDate(year, month, d, getDisplayTimeZone()).getTime());
       const dateMs = date.getTime();
 
       currentWeek.push({
@@ -116,8 +146,8 @@ export function generateCalendarGrids(
       weeks.push(currentWeek);
     }
 
-    const yearMonth = firstOfMonth.toISOString().slice(0, 7);
-    const label = formatUtc(firstOfMonth, 'MMMM yyyy');
+    const yearMonth = getDateKey(firstOfMonth).slice(0, 7);
+    const label = formatDisplay(firstOfMonth, 'MMMM yyyy');
 
     grids.push({ yearMonth, label, weeks });
   }

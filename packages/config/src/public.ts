@@ -1,6 +1,7 @@
 import type { PageConfig } from '@flarewatch/shared';
 
 export const pageConfig: PageConfig = {
+  timeZone: 'Asia/Shanghai',
   title: 'Anime Garden 服务监控',
   links: [
     { label: 'Anime Garden', link: 'https://animes.garden/' },

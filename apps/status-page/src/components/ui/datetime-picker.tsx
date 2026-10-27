@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { IconCalendar } from '@tabler/icons-react';
 
 import { cn } from '@/lib/utils';
-import { formatUtc } from '@/lib/date';
+import { formatDisplay, toDisplayDate, getDisplayTimeZone, formatDisplayZone } from '@/lib/date';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -28,11 +28,11 @@ const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0')
 const minutes = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, '0'));
 
 function formatHour(value: Date): string {
-  return value.getUTCHours().toString().padStart(2, '0');
+  return toDisplayDate(value).getHours().toString().padStart(2, '0');
 }
 
 function formatMinute(value: Date): string {
-  const roundedMinute = Math.round(value.getUTCMinutes() / 5) * 5;
+  const roundedMinute = Math.round(toDisplayDate(value).getMinutes() / 5) * 5;
   return (roundedMinute === 60 ? 0 : roundedMinute).toString().padStart(2, '0');
 }
 
@@ -53,9 +53,9 @@ export function DateTimePicker({
 
   const handleDateSelect = (date: Date | undefined) => {
     if (!date) return onChange?.(undefined);
-    const next = new Date(date.getTime());
-    next.setUTCHours(parseInt(hour, 10), parseInt(minute, 10), 0, 0);
-    onChange?.(next);
+    const next = toDisplayDate(date);
+    next.setHours(parseInt(hour, 10), parseInt(minute, 10), 0, 0);
+    onChange?.(new Date(next.getTime()));
     setOpen(false);
   };
 
@@ -63,9 +63,9 @@ export function DateTimePicker({
     if (!newHour) return;
     setDraftHour(newHour);
     if (value) {
-      const newDate = new Date(value);
-      newDate.setUTCHours(parseInt(newHour, 10), parseInt(minute, 10), 0, 0);
-      onChange?.(newDate);
+      const newDate = toDisplayDate(value);
+      newDate.setHours(parseInt(newHour, 10), parseInt(minute, 10), 0, 0);
+      onChange?.(new Date(newDate.getTime()));
     }
   };
 
@@ -73,9 +73,9 @@ export function DateTimePicker({
     if (!newMinute) return;
     setDraftMinute(newMinute);
     if (value) {
-      const newDate = new Date(value);
-      newDate.setUTCHours(parseInt(hour, 10), parseInt(newMinute, 10), 0, 0);
-      onChange?.(newDate);
+      const newDate = toDisplayDate(value);
+      newDate.setHours(parseInt(hour, 10), parseInt(newMinute, 10), 0, 0);
+      onChange?.(new Date(newDate.getTime()));
     }
   };
 
@@ -93,21 +93,23 @@ export function DateTimePicker({
             )}
           >
             <IconCalendar className="mr-2 size-4" />
-            {value ? formatUtc(value, "MMM d, yyyy HH:mm 'UTC'") : placeholder}
+            {value
+              ? `${formatDisplay(value, 'MMM d, yyyy HH:mm')} ${formatDisplayZone(value)}`
+              : placeholder}
           </Button>
         }
       />
       <PopoverContent className="w-auto p-0" align={align}>
         <Calendar
           mode="single"
-          timeZone="UTC"
+          timeZone={getDisplayTimeZone()}
           selected={value}
           defaultMonth={value}
           onSelect={handleDateSelect}
         />
         <div className="border-t border-border p-3">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Time (UTC):</span>
+            <span className="text-sm text-muted-foreground">{`Time (${value ? formatDisplayZone(value) : getDisplayTimeZone()}):`}</span>
             <Select value={hour} onValueChange={handleHourChange}>
               <SelectTrigger className="w-16">
                 <SelectValue />

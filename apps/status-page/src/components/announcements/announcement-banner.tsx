@@ -1,6 +1,7 @@
+import { formatDisplayShort } from '@/lib/date';
 import { useState } from 'react';
 import { IconBroadcast, IconPencil, IconTrash } from '@tabler/icons-react';
-import { formatUtcShort, isAnnouncementActive, type Announcement } from '@flarewatch/shared';
+import { isAnnouncementActive, type Announcement } from '@flarewatch/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AnnouncementFormDialog } from './announcement-form-dialog';
@@ -59,7 +60,7 @@ export function AnnouncementBanner({
                 )}
                 {announcement.end !== undefined && (
                   <span className="text-xs text-muted-foreground">
-                    {`until ${formatUtcShort(new Date(announcement.end).getTime() / 1000)}`}
+                    {`until ${formatDisplayShort(new Date(announcement.end).getTime() / 1000)}`}
                   </span>
                 )}
               </div>

@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { IconX } from '@tabler/icons-react';
 import type { StatusView } from '@flarewatch/shared';
 import { formatPercent, generateDailyStatus, type DailyStatusData } from '@/lib/uptime';
-import { formatUtc, formatDuration } from '@/lib/date';
+import { formatDisplay, formatDuration } from '@/lib/date';
 import { cn } from '@/lib/utils';
 import { useContainerWidth } from '@/lib/hooks/use-container-width';
 import { STATUS_BAR } from '@/lib/constants';
@@ -29,8 +29,8 @@ function StatusBarSegment({ day, isMobile, onClick }: StatusBarSegmentProps) {
       <BarCell
         aria-label={
           day.status === 'unknown'
-            ? `No data for ${formatUtc(day.date, 'MMM d, yyyy')}`
-            : `${formatPercent(day.uptime, 2)} uptime on ${formatUtc(day.date, 'MMM d, yyyy')}`
+            ? `No data for ${formatDisplay(day.date, 'MMM d, yyyy')}`
+            : `${formatPercent(day.uptime, 2)} uptime on ${formatDisplay(day.date, 'MMM d, yyyy')}`
         }
         status={day.status}
         interactive={day.downtime > 0}
@@ -41,7 +41,7 @@ function StatusBarSegment({ day, isMobile, onClick }: StatusBarSegmentProps) {
         <div className="font-medium">
           {day.status === 'unknown'
             ? 'No data'
-            : `${formatPercent(day.uptime, 2)} at ${formatUtc(day.date, 'MMM d, yyyy')}`}
+            : `${formatPercent(day.uptime, 2)} at ${formatDisplay(day.date, 'MMM d, yyyy')}`}
         </div>
         {day.downtime > 0 && (
           <div className="text-muted-foreground">
@@ -107,7 +107,7 @@ export function StatusBar({ monitorId, monitorName, state }: StatusBarProps) {
             <div className="flex items-center justify-between">
               <DialogTitle>
                 {selectedDay &&
-                  `${monitorName || monitorId} incidents at ${formatUtc(selectedDay.date, 'MMM d, yyyy')}`}
+                  `${monitorName || monitorId} incidents at ${formatDisplay(selectedDay.date, 'MMM d, yyyy')}`}
               </DialogTitle>
               <DialogClose
                 render={

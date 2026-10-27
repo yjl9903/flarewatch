@@ -53,7 +53,7 @@ function DashboardPage() {
 
   return (
     <div className={PAGE_CONTAINER_CLASSES}>
-      <div className="space-y-3">
+      <div className="space-y-6">
         <OverallStatus monitors={monitors} state={state} maintenances={maintenances} />
 
         <AnnouncementBanner announcements={announcements} nowMs={nowMs} />
@@ -65,7 +65,7 @@ function DashboardPage() {
         />
 
         <section>
-          <h2 className="mb-3 text-base font-semibold text-foreground">Monitors</h2>
+          <h2 className="text-base font-semibold text-foreground">Monitors</h2>
           <MonitorList
             monitors={monitors}
             state={state}

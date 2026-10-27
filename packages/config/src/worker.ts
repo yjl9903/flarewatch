@@ -1,6 +1,6 @@
 import type { Monitor, MonitorTarget, WorkerConfig } from '@flarewatch/shared';
 
-// One probe per region per minute: 420 Globalping tests/hour. See docs/monitors.md.
+// China regions every 5 minutes, others every minute: 228 Globalping tests/hour.
 const homeRegions = [
   { id: 'sg', name: '新加坡', magic: 'SG+eyeball-network' },
   { id: 'jp', name: '日本', magic: 'JP+eyeball-network' },
@@ -18,7 +18,7 @@ const regionalHomepages: MonitorTarget[] = homeRegions.map(({ id, name, magic })
   target: 'https://animes.garden/',
   checkEveryMinutes: 1,
   timeout: 48000,
-  downAfterChecks: 4,
+  downAfterChecks: id.startsWith('cn_') || id === 'hk' ? 10 : 4,
   expectedCodes: [200],
   responseKeyword: '<title>Anime Garden 動漫花園第三方镜像站以及动画 BT 资源聚合站</title>',
   checkProxy: `globalping://?${new URLSearchParams({ magic, ipVersion: '4' }).toString()}`,

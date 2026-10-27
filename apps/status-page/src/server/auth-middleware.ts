@@ -32,7 +32,7 @@ function contentSecurityPolicy(nonce: string, framable: boolean): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self' data:",
-    "connect-src 'self'",
+    "connect-src 'self' https://umami.animes.garden",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

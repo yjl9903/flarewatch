@@ -319,7 +319,7 @@ describe('auth middleware content security policy', () => {
     const header = await policy('/');
     const nonce = /'nonce-([A-Za-z0-9_-]{43})'/.exec(header)?.[1];
     expect(header).toBe(
-      `default-src 'self'; script-src 'self' 'nonce-${nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`,
+      `default-src 'self'; script-src 'self' 'nonce-${nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://umami.animes.garden; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`,
     );
     await expect(directive('/embed/demo_example', 'script-src')).resolves.toMatch(
       /^'self' 'nonce-[A-Za-z0-9_-]{43}'$/,

@@ -15,6 +15,7 @@ export const pageConfig: PageConfig = {
       'animegarden_home_cn_mobile',
       'animegarden_home_hk',
       'animegarden_home_sg',
+      'animegarden_home_jp',
       'animegarden_home_us',
       'animegarden_resources',
       'animegarden_subject',

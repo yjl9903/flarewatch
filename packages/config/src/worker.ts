@@ -1,8 +1,9 @@
 import type { Monitor, MonitorTarget, WorkerConfig } from '@flarewatch/shared';
 
-// One probe per region per minute: 360 Globalping tests/hour. See docs/monitors.md.
+// One probe per region per minute: 420 Globalping tests/hour. See docs/monitors.md.
 const homeRegions = [
   { id: 'sg', name: '新加坡', magic: 'SG+eyeball-network' },
+  { id: 'jp', name: '日本', magic: 'JP+eyeball-network' },
   { id: 'cn_telecom', name: '中国电信', magic: 'CN+AS4134+eyeball-network' },
   { id: 'cn_unicom', name: '中国联通', magic: 'CN+AS4837+eyeball-network' },
   { id: 'cn_mobile', name: '中国移动', magic: 'CN+AS9808+eyeball-network' },

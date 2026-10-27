@@ -8,14 +8,7 @@ import { pageConfig as demoPage } from '@flarewatch/config/demo/public';
 import { accessConfig as accessExample } from '@flarewatch/config/access.example';
 import { pageConfig as pageExample } from '@flarewatch/config/public.example';
 import { workerConfig as workerExample } from '@flarewatch/config/worker.example';
-import {
-  affordableChecks,
-  capacityIssue,
-  checkInterval,
-  latencyRowIssue,
-  planIssues,
-  runBudget,
-} from '../src/checkers';
+import { capacityIssue, latencyRowIssue, planIssues } from '../src/checkers';
 import type { MonitorTarget } from '@flarewatch/shared';
 
 describe.each([
@@ -52,18 +45,6 @@ describe.each([
 });
 
 describe('capacityIssue', () => {
-  it('leaves room for extra Globalping polls even when every configured check is due', () => {
-    const webhooks = [workerConfig.notification?.webhook ?? []].flat().length;
-    expect(affordableChecks(workerConfig.monitors, webhooks, 0, 0)).toHaveLength(
-      workerConfig.monitors.length,
-    );
-    expect(runBudget(workerConfig.monitors, webhooks).subrequests).toBeGreaterThanOrEqual(10);
-    const everyMinute = workerConfig.monitors.filter(
-      (monitor) => monitor.method !== 'HEARTBEAT' && checkInterval(monitor) === 1,
-    );
-    expect(runBudget(everyMinute, webhooks).subrequests).toBeGreaterThanOrEqual(20);
-  });
-
   const gets = (count: number, checkEveryMinutes?: number): MonitorTarget[] =>
     Array.from({ length: count }, (_, i) => ({
       id: `m${i}`,

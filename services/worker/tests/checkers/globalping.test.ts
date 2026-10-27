@@ -266,6 +266,47 @@ describe('GlobalPingChecker', () => {
     });
   });
 
+  it('reports a TLS handshake timeout when Globalping returns a null status code', async () => {
+    // China Unicom / Wuhan response: no HTTP response arrived before the TLS timeout.
+    mockCompletedMeasurement(
+      finishedMeasurement(
+        {
+          status: 'failed',
+          failureSource: 'target',
+          statusCode: null,
+          rawBody: null,
+          rawOutput: 'Request timed out during the TLS handshake.',
+          timings: { total: 15000, dns: 2, tcp: 305, tls: null, firstByte: null, download: null },
+          tls: null,
+        },
+        { country: 'CN', city: 'Wuhan' },
+      ),
+    );
+
+    expect((await check(createMonitor())).result).toMatchObject({
+      ok: false,
+      error: 'GlobalPing: Measurement failed: Request timed out during the TLS handshake.',
+    });
+  });
+
+  it('does not accept a finished HTTP measurement without a status code', async () => {
+    mockCompletedMeasurement(finishedMeasurement({ statusCode: null }));
+
+    expect((await check(createMonitor({ expectedCodes: [200] }))).result).toMatchObject({
+      ok: false,
+      error: 'Expected status 200, got 0',
+    });
+  });
+
+  it('still rejects a status code of the wrong type', async () => {
+    mockCompletedMeasurement(finishedMeasurement({ statusCode: '200' }));
+
+    expect((await check(createMonitor())).result).toMatchObject({
+      ok: false,
+      error: 'GlobalPing: invalid measurement payload',
+    });
+  });
+
   it('returns TLS certificate information from the API’s flat fields', async () => {
     mockCompletedMeasurement(
       finishedMeasurement({

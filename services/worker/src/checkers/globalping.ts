@@ -39,7 +39,8 @@ const measurementResultSchema = z.object({
       result: z.object({
         status: z.string(),
         rawOutput: z.optional(z.string()),
-        statusCode: z.optional(z.number()),
+        // Failed HTTP measurements have no response status (for example, a TLS timeout).
+        statusCode: z.optional(z.nullable(z.number())),
         rawBody: z.optional(z.nullable(z.string())),
         timings: z.optional(z.object({ total: z.number() })),
         stats: z.optional(z.object({ avg: z.number() })),

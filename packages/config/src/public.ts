@@ -27,7 +27,12 @@ export const pageConfig: PageConfig = {
     'Torrent 服务': ['torrenta_home'],
     KeepShare: ['keepshare_resource'],
     lnovel: ['lnovel_home', 'lnovel_api'],
-    OneKuma: ['umami', 'pikpak_referral', 'onekuma_home', 'xlor_home'],
-    域名到期: ['domain_animes_garden', 'domain_onekuma_cn', 'domain_xlor_cn'],
+    OneKuma: ['umami', 'onekuma_home', 'xlor_home', 'pikpak_referral'],
+    域名到期: [
+      'domain_animes_garden',
+      'domain_breadio_wiki',
+      // 'domain_onekuma_cn',
+      // 'domain_xlor_cn',
+    ],
   },
 };

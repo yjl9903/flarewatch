@@ -27,7 +27,7 @@ export const PREPAID_REQUESTS = 2;
 
 interface GlobalPingConfig {
   token: string;
-  magic?: string;
+  locations?: { magic: string }[];
   ipVersion: number;
 }
 
@@ -74,7 +74,7 @@ function parseProxyUrl(proxyUrl: string, secret?: string): GlobalPingConfig {
     ipVersion: parseInt(url.searchParams.get('ipVersion') ?? '4', 10),
   };
   if (magic) {
-    config.magic = magic;
+    config.locations = magic.split(',').map((location) => ({ magic: location.trim() }));
   }
   return config;
 }
@@ -86,7 +86,7 @@ function buildTcpRequest(target: MonitorTarget, config: GlobalPingConfig) {
     type: 'ping',
     limit: 1,
     target: hostname,
-    locations: config.magic ? [{ magic: config.magic }] : undefined,
+    locations: config.locations,
     measurementOptions: {
       port,
       packets: 1,
@@ -104,7 +104,7 @@ function buildHttpRequest(target: MonitorTarget, config: GlobalPingConfig) {
     timeout: 30,
     limit: 1,
     target: targetUrl.hostname,
-    locations: config.magic ? [{ magic: config.magic }] : undefined,
+    locations: config.locations,
     measurementOptions: {
       request: {
         method: target.method,

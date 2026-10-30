@@ -52,6 +52,29 @@ describe('GlobalPingChecker', () => {
     expect(fetchMock.mock.calls[1]?.[1]?.headers).toBeUndefined();
   });
 
+  it.each(['GET', 'TCP_PING'] as const)(
+    'selects one probe across multiple locations for %s',
+    async (method) => {
+      mockCompletedMeasurement(finishedMeasurement());
+      const magic = 'CN+AS4837+eyeball-network, CN+AS9929+eyeball-network';
+      await check(
+        createMonitor({
+          method,
+          target: method === 'TCP_PING' ? 'example.com:443' : 'https://example.com/',
+          checkProxy: `globalping://?${new URLSearchParams({ magic }).toString()}`,
+        }),
+        'SecretCaseSensitive',
+      );
+
+      const [, options] = fetchMock.mock.calls[0] ?? [];
+      expect(JSON.parse(typeof options?.body === 'string' ? options.body : '')).toMatchObject({
+        limit: 1,
+        locations: [{ magic: 'CN+AS4837+eyeball-network' }, { magic: 'CN+AS9929+eyeball-network' }],
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    },
+  );
+
   it.each([undefined, '', '   '])(
     'fails without making a request when the secret is %j',
     async (token) => {

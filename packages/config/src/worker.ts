@@ -1,14 +1,20 @@
 import type { Monitor, MonitorTarget, WorkerConfig } from '@flarewatch/shared';
 
-// China regions every 5 minutes, others every minute: 228 Globalping tests/hour.
+// Each candidate keeps the mainland and residential-network restrictions.
+const chinaProbes = (asns: number[]) => asns.map((asn) => `CN+AS${asn}+eyeball-network`).join(',');
+
 const homeRegions = [
-  { id: 'sg', name: '新加坡', magic: 'SG+eyeball-network' },
-  { id: 'jp', name: '日本', magic: 'JP+eyeball-network' },
-  { id: 'cn_telecom', name: '中国电信', magic: 'CN+AS4134+eyeball-network' },
-  { id: 'cn_unicom', name: '中国联通', magic: 'CN+AS4837+eyeball-network' },
-  { id: 'cn_mobile', name: '中国移动', magic: 'CN+AS9808+eyeball-network' },
-  { id: 'us', name: '美国', magic: 'US+eyeball-network' },
-  { id: 'hk', name: '中国香港', magic: 'HK+eyeball-network' },
+  { id: 'sg', name: '新加坡', magic: 'SG' },
+  { id: 'jp', name: '日本', magic: 'JP' },
+  { id: 'cn_telecom', name: '中国电信', magic: chinaProbes([4134, 4809, 4811, 4812]) },
+  { id: 'cn_unicom', name: '中国联通', magic: chinaProbes([4837, 9929, 17621]) },
+  {
+    id: 'cn_mobile',
+    name: '中国移动',
+    magic: chinaProbes([9808, 24445, 56040, 56041, 56045, 56046, 56048]),
+  },
+  { id: 'us', name: '美国', magic: 'US' },
+  { id: 'hk', name: '中国香港', magic: 'HK' },
 ];
 
 const regionalHomepages: MonitorTarget[] = homeRegions.map(({ id, name, magic }) => ({

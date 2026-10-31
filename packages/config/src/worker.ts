@@ -1,7 +1,7 @@
 import type { Monitor, MonitorTarget, WorkerConfig } from '@flarewatch/shared';
 
-// Each candidate keeps the mainland and residential-network restrictions.
-const chinaProbes = (asns: number[]) => asns.map((asn) => `CN+AS${asn}+eyeball-network`).join(',');
+// Include residential and data center probes while keeping mainland operator restrictions.
+const chinaProbes = (asns: number[]) => asns.map((asn) => `CN+AS${asn}`).join(',');
 
 const homeRegions = [
   { id: 'sg', name: '新加坡', magic: 'SG' },

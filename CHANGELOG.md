@@ -13,6 +13,7 @@ All notable changes to FlareWatch will be documented in this file.
 - Dashboard rows and monitor details show 84 two-hour periods across seven days, aligned to the page clock. Phones retain the existing truncation behavior; labels show one date and use 24:00 at midnight.
 - Track visits through `umami.animes.garden`; the CSP permits both Umami and the upstream optional Turnstile challenge.
 - Restore the Anime Garden branding, monitor groups, seven regional homepage checks, private monitors and Shanghai alert policy. Regional checks retain their operator-specific candidate pools and no direct fallback.
+- Keep Worker observability enabled in the committed Wrangler configuration.
 
 ## 3.6.0 - 2026-11-09
 

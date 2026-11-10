@@ -185,7 +185,6 @@ export function MonitorList({
               queryClient.setQueryData(qk.uiPrefs, next);
               void setUiPrefsServerFn({ data: next });
             }}
-            variant="card"
           >
             {activeGroups.map(({ key, name, monitors: groupMonitors }) => {
               const count = groupMonitors.length;

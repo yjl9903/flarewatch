@@ -8,6 +8,7 @@ All notable changes to FlareWatch will be documented in this file.
 
 - Keep `timezone` for displayed times, calendar boundaries, History months and date/time inputs. New maintenance rules inherit the page zone; saved rules retain theirs.
 - Globalping reads `GLOBALPING_TOKEN` from Worker secrets, accepts comma-separated candidate locations, requests one probe with a 30-second HTTP timeout, handles nullable HTTP/TLS fields and redacts credentials.
+- Check runs and Check now retain the 10,000-subrequest budget, including slow Globalping polling and reserved capacity for hub calls and alerts.
 
 ## 3.6.0 - 2026-11-09
 

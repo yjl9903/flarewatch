@@ -59,7 +59,7 @@ it.each(['direct', 'vpc'] as const)(
     reply.resolve(new Response('ok'));
     expect(await pending).toMatchObject({ location: 'HEL', result: { ok: true } });
     expect(requests).toHaveLength(2);
-    expect(budget.subrequests).toBe(46);
+    expect(budget.subrequests).toBe(9996);
   },
 );
 

@@ -164,7 +164,13 @@ it('charges each RDAP redirect to the shared run budget', async () => {
     method: 'DNS',
     target: 'example.com',
   }));
-  await runChecks(env, { ...createWorkerDeps({ monitors: [...dns, domain] }), getEdgeLocation });
+  // Earlier work leaves 50 requests for these checks and hub calls.
+  await runChecks(
+    env,
+    { ...createWorkerDeps({ monitors: [...dns, domain] }), getEdgeLocation },
+    undefined,
+    9950,
+  );
   expect(follow).toBe(false);
   expect(fetched.length + 1).toBeLessThanOrEqual(50);
   expect(hub.view().monitors.a?.incidents[0]?.error[0]).toContain(

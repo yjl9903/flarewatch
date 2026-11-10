@@ -7,11 +7,13 @@ import { freezeClock } from '@flarewatch/shared/testing/clock';
 
 const fetchMock = vi.fn<Fetcher>();
 const checker = new GlobalPingChecker(fetchMock);
-const check = (monitor: MonitorTarget) =>
-  checker.check(monitor, monitor.checkProxy ?? '', {
-    deadline: Date.now() + 55_000,
-    subrequests: 10,
-  });
+const check = (monitor: MonitorTarget, token?: string) =>
+  checker.check(
+    monitor,
+    monitor.checkProxy ?? '',
+    { deadline: Date.now() + 55_000, subrequests: 10 },
+    token,
+  );
 
 function createMonitor(overrides: Partial<MonitorTarget> = {}): MonitorTarget {
   return createHttpMonitor({ checkProxy: 'globalping://test-token', ...overrides });
@@ -30,6 +32,78 @@ function mockCompletedMeasurement(measurement: JsonValue): void {
 describe('GlobalPingChecker', () => {
   beforeEach(() => {
     freezeClock(new Date('2025-01-15T12:00:00Z'));
+  });
+
+  it('uses the Worker secret and preserves encoded magic intersections', async () => {
+    mockCompletedMeasurement(finishedMeasurement());
+    const magic = 'CN+AS4134+eyeball-network';
+    const monitor = createMonitor({
+      checkProxy: `globalping://?${new URLSearchParams({ magic }).toString()}`,
+    });
+
+    expect((await check(monitor, 'SecretCaseSensitive')).result.ok).toBe(true);
+    const [, options] = fetchMock.mock.calls[0] ?? [];
+    expect(options?.headers).toMatchObject({ Authorization: 'Bearer SecretCaseSensitive' });
+    expect(JSON.parse(typeof options?.body === 'string' ? options.body : '')).toMatchObject({
+      limit: 1,
+      locations: [{ magic }],
+    });
+    expect(options?.body).not.toContain('SecretCaseSensitive');
+    expect(fetchMock.mock.calls[1]?.[1]?.headers).toBeUndefined();
+  });
+
+  it.each(['GET', 'TCP_PING'] as const)(
+    'selects one probe across multiple locations for %s',
+    async (method) => {
+      mockCompletedMeasurement(finishedMeasurement());
+      const magic = 'CN+AS4837+eyeball-network, CN+AS9929+eyeball-network';
+      await check(
+        createMonitor({
+          method,
+          target: method === 'TCP_PING' ? 'example.com:443' : 'https://example.com/',
+          checkProxy: `globalping://?${new URLSearchParams({ magic }).toString()}`,
+        }),
+        'SecretCaseSensitive',
+      );
+
+      const [, options] = fetchMock.mock.calls[0] ?? [];
+      expect(JSON.parse(typeof options?.body === 'string' ? options.body : '')).toMatchObject({
+        limit: 1,
+        locations: [{ magic: 'CN+AS4837+eyeball-network' }, { magic: 'CN+AS9929+eyeball-network' }],
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it.each([undefined, '', '   '])(
+    'fails without making a request when the secret is %j',
+    async (token) => {
+      const result = await check(createMonitor({ checkProxy: 'globalping://?magic=SG' }), token);
+      expect(result).toEqual({
+        location: 'ERROR',
+        result: { ok: false, error: 'GlobalPing: GLOBALPING_TOKEN secret is required' },
+        unreachable: true,
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps legacy per-location tokens when a Worker secret is also set', async () => {
+    mockCompletedMeasurement(finishedMeasurement());
+    await check(createMonitor(), 'OtherAccountSecret');
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({
+      Authorization: 'Bearer test-token',
+    });
+  });
+
+  it('redacts a credential echoed by the API before logging or recording an error', async () => {
+    const errorLog = vi.spyOn(console, 'error');
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ error: { message: 'Rejected SecretToken' } }, 401),
+    );
+    const result = await check(createMonitor({ checkProxy: 'globalping://' }), 'SecretToken');
+    expect(result.result).toMatchObject({ ok: false, error: 'GlobalPing: Rejected [redacted]' });
+    expect(JSON.stringify(errorLog.mock.calls)).not.toContain('SecretToken');
   });
 
   it('parses proxy settings and builds an HTTP measurement request', async () => {
@@ -62,6 +136,8 @@ describe('GlobalPingChecker', () => {
     expect(typeof body).toBe('string');
     expect(JSON.parse(body as string)).toEqual({
       type: 'http',
+      timeout: 30,
+      limit: 1,
       target: 'example.com',
       locations: [{ magic: 'aws-us-east-1' }],
       measurementOptions: {
@@ -106,6 +182,7 @@ describe('GlobalPingChecker', () => {
     const [, options] = fetchMock.mock.calls[0] ?? [];
     expect(JSON.parse(options?.body as string)).toEqual({
       type: 'ping',
+      limit: 1,
       target: 'example.com',
       locations: [{ magic: 'eyeball-network' }],
       measurementOptions: {
@@ -176,16 +253,94 @@ describe('GlobalPingChecker', () => {
     });
   });
 
-  it('returns parsed TLS certificate information', async () => {
+  it('reports an empty-body redirect as a status failure rather than an invalid payload', async () => {
+    mockCompletedMeasurement(
+      finishedMeasurement({
+        statusCode: 307,
+        rawBody: null,
+        tls: { authorized: true, expiresAt: '2025-02-20T12:00:00Z', issuer: { CN: 'Example CA' } },
+      }),
+    );
+
+    expect(await check(createMonitor({ expectedCodes: [200] }))).toEqual({
+      location: 'FI/Helsinki',
+      result: { ok: false, error: 'Expected status 200, got 307', latency: 13 },
+    });
+  });
+
+  it('accepts an HTTP response without a body or TLS certificate when no body assertion is set', async () => {
+    mockCompletedMeasurement(finishedMeasurement({ statusCode: 204, rawBody: null, tls: null }));
+    expect(await check(createMonitor({ target: 'http://example.com' }))).toEqual({
+      location: 'FI/Helsinki',
+      result: { ok: true, latency: 13 },
+    });
+  });
+
+  it('still fails a keyword assertion when the API returns a null body', async () => {
+    mockCompletedMeasurement(finishedMeasurement({ rawBody: null, tls: null }));
+    expect((await check(createMonitor({ responseKeyword: 'ready' }))).result).toMatchObject({
+      ok: false,
+      error: 'Required keyword "ready" not found in response',
+    });
+  });
+
+  it('still rejects a body of the wrong type', async () => {
+    mockCompletedMeasurement(finishedMeasurement({ rawBody: { unexpected: true } }));
+    expect((await check(createMonitor())).result).toMatchObject({
+      ok: false,
+      error: 'GlobalPing: invalid measurement payload',
+    });
+  });
+
+  it('reports a TLS handshake timeout when Globalping returns a null status code', async () => {
+    // China Unicom / Wuhan response: no HTTP response arrived before the TLS timeout.
+    mockCompletedMeasurement(
+      finishedMeasurement(
+        {
+          status: 'failed',
+          failureSource: 'target',
+          statusCode: null,
+          rawBody: null,
+          rawOutput: 'Request timed out during the TLS handshake.',
+          timings: { total: 15000, dns: 2, tcp: 305, tls: null, firstByte: null, download: null },
+          tls: null,
+        },
+        { country: 'CN', city: 'Wuhan' },
+      ),
+    );
+
+    expect((await check(createMonitor())).result).toMatchObject({
+      ok: false,
+      error: 'Measurement failed: Request timed out during the TLS handshake.',
+    });
+  });
+
+  it('does not accept a finished HTTP measurement without a status code', async () => {
+    mockCompletedMeasurement(finishedMeasurement({ statusCode: null }));
+
+    expect((await check(createMonitor({ expectedCodes: [200] }))).result).toMatchObject({
+      ok: false,
+      error: 'Expected status 200, got 0',
+    });
+  });
+
+  it('still rejects a status code of the wrong type', async () => {
+    mockCompletedMeasurement(finishedMeasurement({ statusCode: '200' }));
+
+    expect((await check(createMonitor())).result).toMatchObject({
+      ok: false,
+      error: 'GlobalPing: invalid measurement payload',
+    });
+  });
+
+  it('returns TLS certificate information from the API’s flat fields', async () => {
     mockCompletedMeasurement(
       finishedMeasurement({
         tls: {
           authorized: true,
-          certificate: {
-            expiresAt: '2025-02-20T12:00:00Z',
-            issuer: { commonName: 'Example CA' },
-            subject: { commonName: 'example.com' },
-          },
+          expiresAt: '2025-02-20T12:00:00Z',
+          issuer: { CN: 'Example CA' },
+          subject: { CN: 'example.com' },
         },
       }),
     );
@@ -212,7 +367,7 @@ describe('GlobalPingChecker', () => {
       finishedMeasurement({
         tls: {
           authorized: true,
-          certificate: { expiresAt: '2025-01-29T12:00:00Z' },
+          expiresAt: '2025-01-29T12:00:00Z',
         },
       }),
     );
@@ -234,9 +389,7 @@ describe('GlobalPingChecker', () => {
   it.each(['2025-01-15T12:00:00Z', '2025-01-14T12:00:00Z'])(
     'fails an expired certificate at %s',
     async (expiresAt) => {
-      mockCompletedMeasurement(
-        finishedMeasurement({ tls: { authorized: true, certificate: { expiresAt } } }),
-      );
+      mockCompletedMeasurement(finishedMeasurement({ tls: { authorized: true, expiresAt } }));
       expect((await check(createMonitor({ sslCheckEnabled: true }))).result).toMatchObject({
         ok: false,
         error: 'Certificate has expired',
@@ -247,7 +400,7 @@ describe('GlobalPingChecker', () => {
   it('fails a certificate check whose expiry date does not parse, without NaN metadata', async () => {
     mockCompletedMeasurement(
       finishedMeasurement({
-        tls: { authorized: true, certificate: { expiresAt: 'not-a-date' } },
+        tls: { authorized: true, expiresAt: 'not-a-date' },
       }),
     );
 

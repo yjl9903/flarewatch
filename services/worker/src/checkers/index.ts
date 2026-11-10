@@ -274,7 +274,7 @@ async function run(
   deps: CheckDeps,
 ): Promise<CheckResultWithLocation> {
   if (attempt.adapter === 'globalping') {
-    return deps.globalPing.check(target, attempt.url, ctx.budget);
+    return deps.globalPing.check(target, attempt.url, ctx.budget, ctx.env.GLOBALPING_TOKEN);
   }
   if (attempt.adapter === 'proxy') {
     return checkExternalProxy(target, attempt.url, ctx.env, deps.fetcher);

@@ -48,6 +48,7 @@ In your fork, open **Settings > Secrets and variables > Actions**. Only the firs
 | `TURNSTILE_SECRET`            | Optional verification for the subscriber form. Set `TURNSTILE_SITE_KEY` in the status page's Wrangler vars too.                             |
 | `HEARTBEAT_SECRET`            | [Heartbeat](monitors.md#heartbeats) ping URLs. At least 32 characters: `openssl rand -base64 32`.                                           |
 | `FLAREWATCH_PROXY_TOKEN`      | A [check proxy](monitors.md#other-regions-and-private-networks).                                                                            |
+| `GLOBALPING_TOKEN`            | [Globalping probes](monitors.md#globalping-credentials) using token-free `globalping://` locations. Monitor Worker only.                    |
 | `FLAREWATCH_WEBHOOKS`         | [Alert webhooks](alerts.md) you keep out of git, as JSON.                                                                                   |
 
 With the GitHub CLI, each command prompts for the value:

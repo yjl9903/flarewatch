@@ -13,7 +13,12 @@ import { globalPingChecker } from './globalping';
 
 /** GlobalPing reports the probe's own location, so it does not implement `MonitorChecker`. */
 interface LocatedChecker {
-  check(target: MonitorTarget, url: string, budget: RunBudget): Promise<CheckResultWithLocation>;
+  check(
+    target: MonitorTarget,
+    url: string,
+    budget: RunBudget,
+    token?: string,
+  ): Promise<CheckResultWithLocation>;
 }
 
 /**

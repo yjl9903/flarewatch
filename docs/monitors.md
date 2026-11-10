@@ -167,11 +167,25 @@ Pings are limited to 30 a minute per monitor, which stops a looping script. Jobs
 
 By default the Worker runs each check itself. `checkProxy` runs it somewhere else:
 
-- `globalping://<token>?magic=fra&ipVersion=4` runs it from [Globalping](https://www.jsdelivr.com/globalping) probes in that location. `TCP_PING` monitors can then set `pingProtocol: 'icmp'`. Keep the token out of git.
+- `globalping://?magic=fra&ipVersion=4` runs it from [Globalping](https://www.jsdelivr.com/globalping) probes in that location. `TCP_PING` monitors can then set `pingProtocol: 'icmp'`. Set the `GLOBALPING_TOKEN` Worker secret; keep it out of git. Comma-separated `magic` filters form a candidate pool, and each check selects one probe.
 - `https://your-proxy.example.com/check` sends it to [flarewatch-proxy](https://github.com/saminnet/flarewatch-proxy), which you run where it can reach your private network. Set the `FLAREWATCH_PROXY_TOKEN` secret to the proxy's token.
 - `vpc` runs it through the Worker's `VPC` binding. See [Check a private network through Workers VPC](#check-a-private-network-through-workers-vpc) below.
 
 When the proxy fails, the check fails. Set `checkProxyFallback: true` to fall back to a direct check. This applies to `vpc` too: the fallback then runs from the Worker itself, over the public internet.
+
+### Globalping credentials
+
+Create a token on the [Globalping Dashboard's Tokens page](https://dash.globalping.io/tokens). Save it as the GitHub Actions repository secret `GLOBALPING_TOKEN`; the deploy workflow copies it only to the monitor Worker. Or set an encrypted secret directly under **Workers & Pages > flarewatch-worker > Settings > Variables and Secrets**, or with the interactive prompt:
+
+```bash
+vp exec --filter worker -- wrangler secret put GLOBALPING_TOKEN --config wrangler.toml
+```
+
+Do not put the value in a config file, command argument or chat. For local development, use the ignored `services/worker/.dev.vars` file; see `.dev.vars.example` there. `FLAREWATCH_PROXY_TOKEN` belongs to the self-hosted proxy and is never used for Globalping.
+
+The token-free URL works for both `checkProxy` and `confirmVia`. If the secret is missing or blank, the attempt fails with `GlobalPing: GLOBALPING_TOKEN secret is required` before making a network request. It does not run anonymously. A monitor with an explicit fallback or confirmation still follows its configured attempt chain. Legacy `globalping://<token>?magic=...` URLs continue to use their own token, even when the Worker secret exists. Migrate them to token-free URLs and rotate any token previously committed to git.
+
+Build combined location filters with `URLSearchParams`, or encode each `+` as `%2B`: `globalping://?magic=CN%2BAS4134%2Beyeball-network&ipVersion=4`. A literal `+` in a URL query decodes to a space and loses the intersection.
 
 ### Check a private network through Workers VPC
 
@@ -237,7 +251,7 @@ A monitor that asks a place for something it can't do fails on every check, with
   target: 'https://example.com',
   confirmVia: [
     'https://your-proxy.example.com/check',
-    'globalping://<token>?magic=fra',
+    'globalping://?magic=fra',
   ],
   confirmQuorum: 2,
 }

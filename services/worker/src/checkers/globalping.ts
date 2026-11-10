@@ -28,7 +28,7 @@ export const PREPAID_REQUESTS = 2;
 
 interface GlobalPingConfig {
   token: string;
-  magic?: string;
+  locations?: { magic: string }[];
   ipVersion: number;
 }
 
@@ -40,22 +40,21 @@ const measurementResultSchema = z.object({
       result: z.object({
         status: z.string(),
         rawOutput: z.optional(z.string()),
-        statusCode: z.optional(z.number()),
-        rawBody: z.optional(z.string()),
+        // Failed HTTP measurements have no response status (for example, a TLS timeout).
+        statusCode: z.optional(z.nullable(z.number())),
+        rawBody: z.optional(z.nullable(z.string())),
         timings: z.optional(z.object({ total: z.number() })),
         stats: z.optional(z.object({ avg: z.number() })),
         tls: z.optional(
-          z.object({
-            authorized: z.boolean(),
-            error: z.optional(z.string()),
-            certificate: z.optional(
-              z.object({
-                expiresAt: z.optional(z.string()),
-                issuer: z.optional(z.object({ commonName: z.optional(z.string()) })),
-                subject: z.optional(z.object({ commonName: z.optional(z.string()) })),
-              }),
-            ),
-          }),
+          z.nullable(
+            z.object({
+              authorized: z.boolean(),
+              error: z.optional(z.string()),
+              expiresAt: z.optional(z.string()),
+              issuer: z.optional(z.object({ CN: z.optional(z.string()) })),
+              subject: z.optional(z.object({ CN: z.optional(z.string()) })),
+            }),
+          ),
         ),
       }),
     }),
@@ -64,15 +63,19 @@ const measurementResultSchema = z.object({
 
 type MeasurementResult = z.infer<typeof measurementResultSchema>;
 
-function parseProxyUrl(proxyUrl: string): GlobalPingConfig {
-  const url = new URL(proxyUrl);
+function parseProxyUrl(proxyUrl: string, secret?: string): GlobalPingConfig {
+  const url = URL.parse(proxyUrl);
+  if (!url || url.protocol !== 'globalping:') throw new Error('Invalid Globalping location');
+  // Preserve legacy per-location credentials; token-free locations require the Worker secret.
+  const token = url.hostname || secret?.trim();
+  if (!token) throw new Error('GLOBALPING_TOKEN secret is required');
   const magic = url.searchParams.get('magic');
   const config: GlobalPingConfig = {
-    token: url.hostname,
+    token,
     ipVersion: parseInt(url.searchParams.get('ipVersion') ?? '4', 10),
   };
   if (magic) {
-    config.magic = magic;
+    config.locations = magic.split(',').map((location) => ({ magic: location.trim() }));
   }
   return config;
 }
@@ -82,8 +85,9 @@ function buildTcpRequest(target: MonitorTarget, config: GlobalPingConfig) {
 
   return {
     type: 'ping',
+    limit: 1,
     target: hostname,
-    locations: config.magic ? [{ magic: config.magic }] : undefined,
+    locations: config.locations,
     measurementOptions: {
       port,
       packets: 1,
@@ -98,8 +102,10 @@ function buildHttpRequest(target: MonitorTarget, config: GlobalPingConfig) {
 
   return {
     type: 'http',
+    timeout: 30,
+    limit: 1,
     target: targetUrl.hostname,
-    locations: config.magic ? [{ magic: config.magic }] : undefined,
+    locations: config.locations,
     measurementOptions: {
       request: {
         method: target.method,
@@ -148,17 +154,17 @@ async function validateHttpResult(
       error = `TLS error: ${tls.error ?? 'Certificate not trusted'}`;
     }
 
-    if (tls.certificate?.expiresAt) {
-      const { expiryDate, daysUntilExpiry } = calculateCertExpiry(tls.certificate.expiresAt);
+    if (tls.expiresAt) {
+      const { expiryDate, daysUntilExpiry } = calculateCertExpiry(tls.expiresAt);
       if (!Number.isFinite(expiryDate)) {
         if (!error && target.sslCheckEnabled) error = 'Invalid certificate expiry date';
       } else {
         ssl = { expiryDate, daysUntilExpiry };
-        if (tls.certificate.issuer?.commonName) {
-          ssl.issuer = tls.certificate.issuer.commonName;
+        if (tls.issuer?.CN) {
+          ssl.issuer = tls.issuer.CN;
         }
-        if (tls.certificate.subject?.commonName) {
-          ssl.subject = tls.certificate.subject.commonName;
+        if (tls.subject?.CN) {
+          ssl.subject = tls.subject.CN;
         }
 
         if (!error && target.sslCheckEnabled) {
@@ -291,7 +297,9 @@ export class GlobalPingChecker {
     target: MonitorTarget,
     url: string,
     budget: RunBudget,
+    token?: string,
   ): Promise<CheckResultWithLocation> {
+    let credential = '';
     let requests = 0;
     const fetcher: Fetcher = async (input, options = {}) => {
       const remaining = budget.deadline - Date.now();
@@ -305,7 +313,8 @@ export class GlobalPingChecker {
       return this.fetcher(input, { ...options, timeout, redirect: 'manual' });
     };
     try {
-      const config = parseProxyUrl(url);
+      const config = parseProxyUrl(url, token);
+      credential = config.token;
 
       const measurementRequest =
         target.method === 'TCP_PING'
@@ -318,7 +327,9 @@ export class GlobalPingChecker {
       const measurement = await pollMeasurement(measurementId, pollTimeout, fetcher);
       return await parseMeasurementResult(target, measurement);
     } catch (error) {
-      const errorMessage = getErrorMessage(error);
+      const message = getErrorMessage(error);
+      // API and transport errors can quote the Authorization header. Never persist or log it.
+      const errorMessage = credential ? message.replaceAll(credential, '[redacted]') : message;
       const isTimeout = errorMessage.toLowerCase().includes('timeout');
 
       log.error('Error', { name: target.name, error: errorMessage });

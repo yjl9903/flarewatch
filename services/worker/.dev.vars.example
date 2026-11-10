@@ -4,3 +4,6 @@
 # Optional: If your monitors use an external proxy protected by a token,
 # set the same token here so the worker can send `Authorization: Bearer <token>`.
 # FLAREWATCH_PROXY_TOKEN=<proxy-token>
+
+# Required for token-free globalping:// locations. Create a token in the Globalping Dashboard.
+# GLOBALPING_TOKEN=<globalping-token>

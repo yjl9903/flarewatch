@@ -195,7 +195,7 @@ test('a row opens the monitor page with its history and chart', async ({ page })
     'href',
     'https://developers.cloudflare.com/',
   );
-  await expect(page.getByRole('heading', { name: 'Last 90 days' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Last 7 days' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Response times (ms)' })).toBeVisible();
   await expect(page.getByTestId('latency-chart')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Check now' })).toHaveCount(0);
@@ -377,7 +377,7 @@ const privateHeartbeat = {
   name: 'Internal Vault Backup',
 } as const;
 
-test('rows show the last 90 days, or 30 on a phone, and still open the monitor page', async ({
+test('rows show 84 two-hour periods, or 30 on a phone, and still open the monitor page', async ({
   page,
 }) => {
   const docsRow = monitorRow(page, 'Cloudflare Docs');
@@ -389,13 +389,15 @@ test('rows show the last 90 days, or 30 on a phone, and still open the monitor p
 
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto('/');
-  await expect(cells.filter({ visible: true })).toHaveCount(90);
+  await expect(cells.filter({ visible: true })).toHaveCount(84);
   await expect(
-    page.getByRole('link', { name: /^Cloudflare Docs, .*, no downtime in the last 90 days$/ }),
+    page.getByRole('link', {
+      name: /^Cloudflare Docs, .*, no downtime in 8[34] monitored two-hour periods$/,
+    }),
   ).toBeVisible();
   await expect(
     page.getByRole('link', {
-      name: /^Cloudflare Status API, .*, downtime on [12] of the last 90 days$/,
+      name: /^Cloudflare Status API, .*, downtime in [12] of 8[34] monitored two-hour periods$/,
     }),
   ).toBeVisible();
   await expect(

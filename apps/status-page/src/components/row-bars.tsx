@@ -3,10 +3,10 @@ import { HEARTBEAT_RUN_HISTORY } from '@flarewatch/shared';
 import { RUN_CELL_CLASSES, RUNNING_CELL_CLASSES } from '@/components/ui/status-cell';
 import type { HeartbeatView } from '@/lib/heartbeat';
 import { STATUS_COLORS } from '@/lib/constants';
-import type { DailyStatusData } from '@/lib/uptime';
+import type { StatusPeriodData } from '@/lib/uptime';
 import { cn } from '@/lib/utils';
 
-/** Cells shown in a narrow row: the last 30 of the 90. */
+/** Cells shown in a narrow row: the latest 30 periods or heartbeat runs. */
 const NARROW_CELLS = 30;
 
 type Cell = { key: string; className: string };
@@ -39,20 +39,20 @@ function Cells({ cells }: { cells: Cell[] }) {
 }
 
 export function RowBars({
-  days,
+  periods,
   heartbeat,
 }: {
-  days: DailyStatusData[];
+  periods: StatusPeriodData[];
   heartbeat: HeartbeatView | null;
 }) {
   if (!heartbeat) {
-    const cells = days.map((day) => ({
-      key: day.date.toISOString(),
-      className: STATUS_COLORS[day.status],
+    const cells = periods.map((period) => ({
+      key: period.date.toISOString(),
+      className: STATUS_COLORS[period.status],
     }));
     return <Cells cells={cells} />;
   }
-  // 90 grey cells say nothing about a job that has not run yet.
+  // Empty grey cells say nothing about a job that has not run yet.
   if (heartbeat.phase === 'pending') return null;
   const filled: Cell[] = (heartbeat.runs ?? []).map((run) => ({
     key: `${run.at}-${run.outcome}`,
@@ -69,7 +69,7 @@ export function RowBars({
 }
 
 /** Screen-reader text for the row link, since the strip itself is hidden from assistive tech. */
-export function barsSummary(days: DailyStatusData[], heartbeat: HeartbeatView | null): string {
+export function barsSummary(periods: StatusPeriodData[], heartbeat: HeartbeatView | null): string {
   if (heartbeat) {
     const runs = heartbeat.runs ?? [];
     if (runs.length === 0) return 'no runs yet';
@@ -77,9 +77,9 @@ export function barsSummary(days: DailyStatusData[], heartbeat: HeartbeatView | 
       runs.filter((run) => run.outcome === outcome).length;
     return `last ${runs.length} runs: ${count('miss')} missed, ${count('fail')} failed, ${count('late')} late`;
   }
-  const watched = days.filter((day) => day.status !== 'unknown');
+  const watched = periods.filter((period) => period.status !== 'unknown');
   if (watched.length === 0) return 'no data yet';
-  const span = `the last ${watched.length} ${watched.length === 1 ? 'day' : 'days'}`;
-  const bad = watched.filter((day) => day.status !== 'up').length;
-  return bad === 0 ? `no downtime in ${span}` : `downtime on ${bad} of ${span}`;
+  const span = `${watched.length} monitored two-hour ${watched.length === 1 ? 'period' : 'periods'}`;
+  const bad = watched.filter((period) => period.status !== 'up').length;
+  return bad === 0 ? `no downtime in ${span}` : `downtime in ${bad} of ${span}`;
 }

@@ -10,6 +10,7 @@ All notable changes to FlareWatch will be documented in this file.
 - Globalping reads `GLOBALPING_TOKEN` from Worker secrets, accepts comma-separated candidate locations, requests one probe with a 30-second HTTP timeout, handles nullable HTTP/TLS fields and redacts credentials.
 - Check runs and Check now retain the 10,000-subrequest budget, including slow Globalping polling and reserved capacity for hub calls and alerts.
 - Keep the compact accordion spacing, dashboard layout and accessible coloured status counts alongside the upstream hydration-aware refresh clock.
+- Dashboard rows and monitor details show 84 two-hour periods across seven days, aligned to the page clock. Phones retain the existing truncation behavior; labels show one date and use 24:00 at midnight.
 
 ## 3.6.0 - 2026-11-09
 

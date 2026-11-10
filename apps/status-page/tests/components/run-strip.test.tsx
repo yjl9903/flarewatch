@@ -4,7 +4,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vite-plus/test';
 
 import { RunStrip } from '../../src/components/run-strip';
-import { formatUtcShort } from '@flarewatch/shared';
+import { formatDisplayShort } from '@/lib/date';
 
 describe('RunStrip', () => {
   it('labels a failed run cell with its time and outcome', () => {
@@ -24,7 +24,7 @@ describe('RunStrip', () => {
 
     const failCell = container.querySelector('[role="group"] [aria-label*="Failed at"]');
     expect(failCell).toBeTruthy();
-    expect(failCell!.getAttribute('aria-label')).toContain(formatUtcShort(1234));
+    expect(failCell!.getAttribute('aria-label')).toContain(formatDisplayShort(1234));
   });
 
   it('opens the run detail on tap', async () => {
@@ -47,6 +47,6 @@ describe('RunStrip', () => {
     );
     fireEvent.click(failCell!);
 
-    expect(await screen.findByText(`Failed at ${formatUtcShort(1234)}`)).toBeTruthy();
+    expect(await screen.findByText(`Failed at ${formatDisplayShort(1234)}`)).toBeTruthy();
   });
 });

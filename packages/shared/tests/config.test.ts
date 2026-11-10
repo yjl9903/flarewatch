@@ -44,14 +44,11 @@ describe('config validation', () => {
       expect(configIssues(createRuntimeConfig({ statusPage: { timezone } }))).toEqual([]);
     },
   );
-  it.each(['Europe/Stockholmm', '', 'GMT+2'])(
-    'rejects unknown page timezone %s and names its value',
-    (timezone) => {
-      expect(configIssues(createRuntimeConfig({ statusPage: { timezone } }))).toEqual([
-        'statusPage.timezone: Unknown page timezone: ' + timezone,
-      ]);
-    },
-  );
+  it.each(['Europe/Stockholmm', '', 'GMT+2'])('rejects unknown page time zone %s', (timezone) => {
+    expect(configIssues(createRuntimeConfig({ statusPage: { timezone } }))).toEqual([
+      'statusPage.timezone: Unknown page timezone: ' + timezone,
+    ]);
+  });
   it('accepts every hub location hint and rejects invalid hub locations', () => {
     for (const hubLocation of [
       'wnam',
@@ -262,6 +259,7 @@ describe('config validation', () => {
     const config = createRuntimeConfig({
       statusPage: {
         title: 'Status',
+        timezone: 'Asia/Shanghai',
         visibility: 'private',
         links: [{ label: 'Home', link: 'https://example.com', highlight: true }],
         group: { APIs: ['api'] },
@@ -272,6 +270,12 @@ describe('config validation', () => {
     });
 
     expect(configIssues(config)).toEqual([]);
+  });
+
+  it('rejects an invalid status page time zone', () => {
+    expect(
+      configIssues(createRuntimeConfig({ statusPage: { timezone: 'Not/A_Zone' } })).join(),
+    ).toContain('statusPage.timezone');
   });
 
   it('names an unknown status page field', () => {

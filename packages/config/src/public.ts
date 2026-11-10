@@ -1,6 +1,7 @@
 import type { PageConfig } from '@flarewatch/shared';
 
 export const pageConfig: PageConfig = {
+  timezone: 'Asia/Shanghai',
   title: 'FlareWatch',
   links: [
     { label: 'GitHub', link: 'https://github.com/saminnet/flarewatch' },

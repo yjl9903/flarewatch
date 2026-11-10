@@ -6,7 +6,13 @@ import {
   type Occurrence,
 } from '@flarewatch/shared';
 import { TIME_MS, UPCOMING_MAINTENANCE_DAYS } from './constants';
-import { formatPageTime, formatPageDate, formatDuration } from './date';
+import {
+  formatDisplay,
+  formatDisplayShort,
+  formatDisplayZone,
+  formatDuration,
+  getDateKey,
+} from './date';
 
 /** Of the given run, by default the window's current or next one. */
 export function getMaintenanceStatus(
@@ -89,7 +95,7 @@ export const REPEAT_OPTIONS = [
   { value: 'month', label: 'Every month' },
 ] as const;
 
-/** Like "Every week on Mon, Thu, Europe/Berlin time, until Jul 1, 10:00 UTC". */
+/** Like "Every week on Mon, Thu, Europe/Berlin time, until Jul 1, 18:00 UTC+8". */
 export function describeRepeat(repeat: MaintenanceRepeat): string {
   let text = `Every ${repeat.every}`;
   if (repeat.every === 'week' && repeat.weekdays) {
@@ -98,7 +104,7 @@ export function describeRepeat(repeat: MaintenanceRepeat): string {
   if (repeat.every === 'month' && repeat.dayOfMonth) text += ` on day ${repeat.dayOfMonth}`;
   if (repeat.timeZone && repeat.timeZone !== 'UTC') text += `, ${repeat.timeZone} time`;
   if (repeat.until !== undefined) {
-    text += `, until ${formatPageTime(new Date(repeat.until).getTime() / 1000)}`;
+    text += `, until ${formatDisplayShort(new Date(repeat.until).getTime() / 1000)}`;
   }
   return text;
 }
@@ -109,15 +115,14 @@ export function formatTimeUntil(date: Date, now = new Date()): string {
 }
 
 export function formatDateRange(start: Date, end: Date | null): string {
-  if (!end) return formatPageTime(start.getTime() / 1000);
-  const zoneOf = (date: Date) => formatPageDate(date, 'z');
-  if (zoneOf(start) !== zoneOf(end)) {
-    return `${formatPageTime(start.getTime() / 1000)} – ${formatPageTime(end.getTime() / 1000)}`;
+  if (!end) return formatDisplayShort(start.getTime() / 1000);
+  if (
+    getDateKey(start) === getDateKey(end) &&
+    formatDisplayZone(start) === formatDisplayZone(end)
+  ) {
+    return `${formatDisplay(start, 'MMM d, HH:mm')}–${formatDisplay(end, 'HH:mm')} ${formatDisplayZone(end)}`;
   }
-  if (formatPageDate(start, 'MMM d, yyyy') === formatPageDate(end, 'MMM d, yyyy')) {
-    return `${formatPageDate(start, 'MMM d, HH:mm')}–${formatPageDate(end, 'HH:mm z')}`;
-  }
-  return `${formatPageDate(start, 'MMM d, HH:mm')} – ${formatPageTime(end.getTime() / 1000)}`;
+  return `${formatDisplayShort(start.getTime() / 1000)} – ${formatDisplayShort(end.getTime() / 1000)}`;
 }
 
 type MaintenanceColors = {

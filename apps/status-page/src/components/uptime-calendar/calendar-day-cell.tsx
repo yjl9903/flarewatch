@@ -1,7 +1,7 @@
 import { Tooltip, TooltipContent } from '@/components/ui/tooltip';
 import { DayCell } from '@/components/ui/status-cell';
 import { cn } from '@/lib/utils';
-import { formatUtc, type CalendarDay } from '@/lib/date';
+import { formatDisplay, type CalendarDay } from '@/lib/date';
 import { formatPercent, type AggregatedDayData } from '@/lib/uptime';
 
 interface CalendarDayCellProps {
@@ -16,7 +16,7 @@ export function CalendarDayCell({ day, data, animationDelay, onClick }: Calendar
     return <div className="h-6" />;
   }
 
-  const dayNum = day.date.getUTCDate();
+  const dayNum = formatDisplay(day.date, 'd');
 
   if (day.isFuture) {
     return (
@@ -30,7 +30,7 @@ export function CalendarDayCell({ day, data, animationDelay, onClick }: Calendar
   }
 
   const status = data?.status ?? 'unknown';
-  const dateStr = formatUtc(day.date, 'MMM d, yyyy');
+  const dateStr = formatDisplay(day.date, 'MMM d, yyyy');
   const incidentCount = data?.incidents.length ?? 0;
   const hasIncidents = incidentCount > 0;
 

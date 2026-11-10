@@ -976,14 +976,16 @@ test.describe.serial('operator maintenance lifecycle', () => {
     await dialog.getByRole('button', { name: 'Save' }).click();
     const response = await created;
     expect(response.status()).toBe(201);
-    expect(await response.json()).toMatchObject({ repeat: { every: 'week', weekdays: [1, 3] } });
+    expect(await response.json()).toMatchObject({
+      repeat: { every: 'week', weekdays: [1, 3], timeZone: 'Australia/Darwin' },
+    });
     await expect(dialog).not.toBeVisible();
     await expect(page.getByText('Every week on Mon, Wed').first()).toBeVisible();
 
     await page.getByRole('button', { name: 'Delete E2E weekly maintenance' }).first().click();
     const deleteDialog = page.getByRole('dialog', { name: 'Delete maintenance window' });
     await expect(deleteDialog).toContainText(
-      'Delete "E2E weekly maintenance" and every occurrence? Every week on Mon, Wed. This cannot be undone.',
+      'Delete "E2E weekly maintenance" and every occurrence? Every week on Mon, Wed, Australia/Darwin time. This cannot be undone.',
     );
     const deleted = page.waitForResponse(
       (response) =>

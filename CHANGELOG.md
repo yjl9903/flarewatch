@@ -2,6 +2,12 @@
 
 All notable changes to FlareWatch will be documented in this file.
 
+## Unreleased
+
+### Changed
+
+- Keep `timezone` for displayed times, calendar boundaries, History months and date/time inputs. New maintenance rules inherit the page zone; saved rules retain theirs.
+
 ## 3.6.0 - 2026-11-09
 
 ### Added

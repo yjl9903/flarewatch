@@ -1,5 +1,4 @@
-import { pageZone } from '@/lib/page-zone';
-import { restoreAfterEach } from '../helpers/config';
+import { useDisplayTimeZone } from '../helpers/display-time-zone';
 import { describe, expect, it } from 'vite-plus/test';
 import type { Maintenance } from '@flarewatch/shared';
 import {
@@ -12,6 +11,8 @@ import {
   getMaintenanceStatus,
   resolveAffectedMonitors,
 } from '@/lib/maintenance';
+
+useDisplayTimeZone('Asia/Shanghai');
 
 function maintenance(id: string, start: string, end?: string): Maintenance {
   return {
@@ -77,11 +78,14 @@ describe('maintenance helpers', () => {
   it('formats time ranges and relative durations', () => {
     expect(
       formatDateRange(new Date('2026-06-09T12:30:00.000Z'), new Date('2026-06-09T13:45:00.000Z')),
-    ).toBe('Jun 9, 12:30–13:45 UTC');
+    ).toBe('Jun 9, 20:30–21:45 UTC+8');
     expect(
       formatDateRange(new Date('2026-06-09T23:30:00.000Z'), new Date('2026-06-10T01:00:00.000Z')),
-    ).toBe('Jun 9, 23:30 – Jun 10, 01:00 UTC');
-    expect(formatDateRange(new Date('2026-06-09T12:30:00.000Z'), null)).toBe('Jun 9, 12:30 UTC');
+    ).toBe('Jun 10, 07:30–09:00 UTC+8');
+    expect(formatDateRange(new Date('2026-06-09T12:30:00.000Z'), null)).toBe('Jun 9, 20:30 UTC+8');
+    expect(
+      formatDateRange(new Date('2026-06-09T15:30:00Z'), new Date('2026-06-09T16:30:00Z')),
+    ).toBe('Jun 9, 23:30 UTC+8 – Jun 10, 00:30 UTC+8');
     expect(formatTimeUntil(new Date('2026-06-09T13:30:00.000Z'), new Date(now))).toBe('1h 30m');
   });
 
@@ -147,29 +151,6 @@ describe('maintenance helpers', () => {
         timeZone: 'Europe/Berlin',
         until: '2026-07-01T10:00:00.000Z',
       }),
-    ).toBe('Every week on Mon, Thu, Europe/Berlin time, until Jul 1, 10:00 UTC');
+    ).toBe('Every week on Mon, Thu, Europe/Berlin time, until Jul 1, 18:00 UTC+8');
   });
-});
-
-restoreAfterEach(pageZone, ['timezone']);
-
-it('shows both local dates when a maintenance range crosses local midnight', () => {
-  pageZone.timezone = 'Australia/Darwin';
-  expect(formatDateRange(new Date('2026-01-05T14:00:00Z'), new Date('2026-01-05T15:00:00Z'))).toBe(
-    'Jan 5, 23:30 – Jan 6, 00:30 UTC+9:30',
-  );
-});
-
-it('names the page zone once for a range within one local day', () => {
-  pageZone.timezone = 'Australia/Darwin';
-  expect(formatDateRange(new Date('2026-11-08T05:00:00Z'), new Date('2026-11-08T06:00:00Z'))).toBe(
-    'Nov 8, 14:30–15:30 UTC+9:30',
-  );
-});
-
-it('shows both offsets when a maintenance range crosses the March change', () => {
-  pageZone.timezone = 'Europe/Stockholm';
-  expect(formatDateRange(new Date('2026-03-29T00:30:00Z'), new Date('2026-03-29T01:30:00Z'))).toBe(
-    'Mar 29, 01:30 UTC+1 – Mar 29, 03:30 UTC+2',
-  );
 });

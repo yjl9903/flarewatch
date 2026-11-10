@@ -27,15 +27,11 @@ import {
 import { snapshotQuery } from '@/lib/query/monitors.queries';
 import { useAudience } from '@/lib/hooks/use-audience';
 import { useNow } from '@/lib/hooks/use-now';
-import { shiftYearMonth, getUtcMonthBounds } from '@/lib/date';
+import { shiftYearMonth, getDisplayMonthBounds, getDateKey } from '@/lib/date';
 import { projectTimeline } from '@/lib/status-projection';
 import { PAGE_CONTAINER_CLASSES } from '@/lib/constants';
 
 const historyRoute = getRouteApi('/history');
-
-function getCurrentMonth(): string {
-  return new Date().toISOString().slice(0, 7);
-}
 
 export function HistoryPage() {
   usePageHydrated();
@@ -54,9 +50,9 @@ export function HistoryPage() {
     type: eventType,
   } = historyRoute.useSearch();
   const navigate = historyRoute.useNavigate();
-  const resolvedMonth = selectedMonth ?? getCurrentMonth();
+  const resolvedMonth = selectedMonth ?? getDateKey(new Date(loaderNowMs)).slice(0, 7);
 
-  const { monthStart, monthEnd } = getUtcMonthBounds(resolvedMonth);
+  const { monthStart, monthEnd } = getDisplayMonthBounds(resolvedMonth);
 
   const { pinned, timeline } = projectTimeline({
     state,

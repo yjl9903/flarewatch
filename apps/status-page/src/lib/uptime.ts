@@ -1,6 +1,6 @@
 import type { LatencySample, StatusView } from '@flarewatch/shared';
-import { formatPageDate } from './date';
-import { UPTIME_DAYS, UPTIME_THRESHOLDS } from './constants';
+import { formatDisplay, startOfDisplayDay, toDisplayDate } from './date';
+import { STATUS_BAR, TIME_MS, UPTIME_DAYS, UPTIME_THRESHOLDS } from './constants';
 
 const MIN_MONITOR_AGE_SECONDS = 60;
 
@@ -115,119 +115,112 @@ function createUnknownDay(date: Date): DailyStatusData {
   return { date, status: 'unknown', uptime: 100, downtime: 0, incidents: [] };
 }
 
-function generateUnknownDays(baseDate: Date): DailyStatusData[] {
-  const days: DailyStatusData[] = [];
-  for (let i = UPTIME_DAYS - 1; i >= 0; i--) {
-    const date = new Date(baseDate);
-    date.setUTCDate(date.getUTCDate() - i);
-    date.setUTCHours(0, 0, 0, 0);
-    days.push(createUnknownDay(date));
-  }
-  return days;
-}
-
-export function generateDailyStatus(monitorId: string, state: StatusView): DailyStatusData[] {
-  const days: DailyStatusData[] = [];
+/** Calculate downtime only within the part of a period the monitor has observed. */
+function generatePeriodStatus(
+  monitorId: string,
+  state: StatusView,
+  date: Date,
+  endDate: Date,
+): DailyStatusData {
   const nowSec = getNowSeconds(state);
+  if (nowSec === null || !hasMonitorData(monitorId, state)) return createUnknownDay(date);
 
-  if (nowSec === null) {
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-    return generateUnknownDays(today);
-  }
-
-  const nowMs = nowSec * 1000;
-  const now = new Date(nowMs);
   const incidents = state.monitors[monitorId]?.incidents ?? [];
   const monitorStartSec = state.monitors[monitorId]?.startedAt;
+  const periodStartSec = Math.floor(date.getTime() / 1000);
+  const periodEndSec = Math.floor(endDate.getTime() / 1000);
+  if (monitorStartSec && periodEndSec <= monitorStartSec) return createUnknownDay(date);
 
-  if (!hasMonitorData(monitorId, state)) {
-    return generateUnknownDays(now);
-  }
+  const effectivePeriodStartSec = monitorStartSec
+    ? Math.max(periodStartSec, monitorStartSec)
+    : periodStartSec;
+  const effectivePeriodEndSec = Math.min(periodEndSec, nowSec);
+  const effectivePeriodStartMs = effectivePeriodStartSec * 1000;
+  const effectivePeriodEndMs = effectivePeriodEndSec * 1000;
 
-  for (let i = UPTIME_DAYS - 1; i >= 0; i--) {
-    const date = new Date(now);
-    date.setUTCDate(date.getUTCDate() - i);
-    date.setUTCHours(0, 0, 0, 0);
+  let downtime = 0;
+  const periodIncidents: DayIncidentDetail[] = [];
 
-    const dayStart = date.getTime();
-    const dayEnd = dayStart + 24 * 60 * 60 * 1000;
-    const dayStartSec = Math.floor(dayStart / 1000);
-    const dayEndSec = Math.floor(dayEnd / 1000);
+  for (const incident of incidents) {
+    const incidentStart = incident.start[0];
+    if (incidentStart === undefined) continue;
+    const incidentEnd = incident.end ?? nowSec;
 
-    if (monitorStartSec && dayEndSec <= monitorStartSec) {
-      days.push(createUnknownDay(date));
-      continue;
-    }
+    if (incidentEnd > effectivePeriodStartSec && incidentStart < effectivePeriodEndSec) {
+      const overlapStart = Math.max(incidentStart, effectivePeriodStartSec);
+      const overlapEnd = Math.min(incidentEnd, effectivePeriodEndSec);
+      downtime += (overlapEnd - overlapStart) * 1000;
 
-    const effectiveDayStartSec = monitorStartSec
-      ? Math.max(dayStartSec, monitorStartSec)
-      : dayStartSec;
-    const effectiveDayEndSec = Math.min(dayEndSec, nowSec);
-    const effectiveDayStartMs = effectiveDayStartSec * 1000;
-    const effectiveDayEndMs = effectiveDayEndSec * 1000;
+      for (let j = 0; j < incident.error.length; j++) {
+        const partStart = incident.start[j];
+        if (partStart === undefined) continue;
+        const nextStart = incident.start[j + 1];
+        const partEnd =
+          j === incident.error.length - 1 ? (incident.end ?? nowSec) : (nextStart ?? nowSec);
 
-    let downtimeInDay = 0;
-    const dayIncidents: DayIncidentDetail[] = [];
+        if (partEnd > effectivePeriodStartSec && partStart < effectivePeriodEndSec) {
+          const clampedStart = Math.max(partStart, effectivePeriodStartSec);
+          const clampedEnd = Math.min(partEnd, effectivePeriodEndSec);
+          const errorMsg = incident.error[j];
 
-    for (const incident of incidents) {
-      const incidentStart = incident.start[0];
-      if (incidentStart === undefined) continue;
-      const incidentEnd = incident.end ?? nowSec;
-
-      if (incidentEnd > effectiveDayStartSec && incidentStart < effectiveDayEndSec) {
-        const overlapStart = Math.max(incidentStart, effectiveDayStartSec);
-        const overlapEnd = Math.min(incidentEnd, effectiveDayEndSec);
-        downtimeInDay += (overlapEnd - overlapStart) * 1000;
-
-        for (let j = 0; j < incident.error.length; j++) {
-          const partStart = incident.start[j];
-          if (partStart === undefined) continue;
-          const nextStart = incident.start[j + 1];
-          const partEnd =
-            j === incident.error.length - 1 ? (incident.end ?? nowSec) : (nextStart ?? nowSec);
-
-          if (partEnd > effectiveDayStartSec && partStart < effectiveDayEndSec) {
-            const clampedStart = Math.max(partStart, effectiveDayStartSec);
-            const clampedEnd = Math.min(partEnd, effectiveDayEndSec);
-            const errorMsg = incident.error[j];
-
-            dayIncidents.push({
-              startSec: partStart,
-              startTime: formatPageDate(new Date(clampedStart * 1000), 'HH:mm'),
-              endTime: formatPageDate(new Date(clampedEnd * 1000), 'HH:mm'),
-              error: errorMsg ?? 'Unknown error',
-            });
-          }
+          periodIncidents.push({
+            startSec: partStart,
+            startTime: formatDisplay(new Date(clampedStart * 1000), 'HH:mm'),
+            endTime: formatDisplay(new Date(clampedEnd * 1000), 'HH:mm'),
+            error: errorMsg ?? 'Unknown error',
+          });
         }
       }
     }
-
-    const dayDuration = effectiveDayEndMs - effectiveDayStartMs;
-    const uptimePercent =
-      dayDuration > 0 ? ((dayDuration - downtimeInDay) / dayDuration) * 100 : 100;
-
-    let status: DayStatus;
-    if (dayStart > nowMs || effectiveDayEndSec <= effectiveDayStartSec) {
-      status = 'unknown';
-    } else if (uptimePercent >= UPTIME_THRESHOLDS.EXCELLENT) {
-      status = 'up';
-    } else if (uptimePercent >= UPTIME_THRESHOLDS.GOOD) {
-      status = 'partial';
-    } else {
-      status = 'down';
-    }
-
-    days.push({
-      date,
-      status,
-      uptime: uptimePercent,
-      downtime: downtimeInDay,
-      incidents: dayIncidents,
-    });
   }
 
-  return days;
+  const duration = effectivePeriodEndMs - effectivePeriodStartMs;
+  const uptimePercent = duration > 0 ? ((duration - downtime) / duration) * 100 : 100;
+
+  let status: DayStatus;
+  if (effectivePeriodEndSec <= effectivePeriodStartSec) {
+    status = 'unknown';
+  } else if (uptimePercent >= UPTIME_THRESHOLDS.EXCELLENT) {
+    status = 'up';
+  } else if (uptimePercent >= UPTIME_THRESHOLDS.GOOD) {
+    status = 'partial';
+  } else {
+    status = 'down';
+  }
+
+  return { date, status, uptime: uptimePercent, downtime, incidents: periodIncidents };
+}
+
+export function generateDailyStatus(monitorId: string, state: StatusView): DailyStatusData[] {
+  const now = new Date((getNowSeconds(state) ?? 0) * 1000);
+  return Array.from({ length: UPTIME_DAYS }, (_, index) => {
+    const date = startOfDisplayDay(now, index - UPTIME_DAYS + 1);
+    return generatePeriodStatus(monitorId, state, date, startOfDisplayDay(date, 1));
+  });
+}
+
+export interface StatusPeriodData extends DailyStatusData {
+  endDate: Date;
+}
+
+/** 84 clock-aligned periods in the page zone, including the current partial period. */
+export function generateRecentStatus(monitorId: string, state: StatusView): StatusPeriodData[] {
+  const now = toDisplayDate(new Date((getNowSeconds(state) ?? 0) * 1000));
+  const hours = STATUS_BAR.HOURS_PER_SEGMENT;
+  const currentHour = Math.floor(now.getHours() / hours) * hours;
+  const count = (STATUS_BAR.DAYS * TIME_MS.DAY) / (hours * TIME_MS.HOUR);
+  return Array.from({ length: count }, (_, index) => {
+    const clockHour = currentHour - (count - index - 1) * hours;
+    const day = startOfDisplayDay(now, Math.floor(clockHour / 24));
+    const hour = ((clockHour % 24) + 24) % 24;
+    const start = toDisplayDate(day);
+    const end = toDisplayDate(day);
+    start.setHours(hour, 0, 0, 0);
+    end.setHours(hour + hours, 0, 0, 0);
+    const date = new Date(start.getTime());
+    const endDate = new Date(end.getTime());
+    return { ...generatePeriodStatus(monitorId, state, date, endDate), endDate };
+  });
 }
 
 export function generateAggregateDailyStatus(

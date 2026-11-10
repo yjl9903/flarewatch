@@ -6,6 +6,7 @@ export type PageConfig = {
     maxSubscribers?: number;
   };
   title?: string;
+  /** IANA zone for displayed dates, calendar boundaries and date/time inputs; defaults to UTC. */
   timezone?: string;
   links?: PageConfigLink[];
   group?: PageConfigGroup;

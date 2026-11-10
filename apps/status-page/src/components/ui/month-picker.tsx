@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { IconCalendar, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 
-import { formatUtc, parseYearMonth } from '@/lib/date';
+import { formatDisplay, parseYearMonth, getDisplayMonthBounds } from '@/lib/date';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -28,7 +28,7 @@ export function MonthPicker({ value, onChange, className }: MonthPickerProps) {
     setOpen(false);
   };
 
-  const displayDate = new Date(Date.UTC(selectedYear, selectedMonth - 1, 1));
+  const displayDate = getDisplayMonthBounds(value).monthStart;
 
   return (
     <Popover
@@ -42,7 +42,7 @@ export function MonthPicker({ value, onChange, className }: MonthPickerProps) {
         render={
           <Button variant="outline" size="sm" className={cn('gap-1.5', className)}>
             <IconCalendar className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">{formatUtc(displayDate, 'MMM yyyy')}</span>
+            <span className="text-sm font-medium">{formatDisplay(displayDate, 'MMM yyyy')}</span>
           </Button>
         }
       />

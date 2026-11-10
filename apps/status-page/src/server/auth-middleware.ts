@@ -37,7 +37,7 @@ function contentSecurityPolicy(nonce: string, framable: boolean, turnstile: bool
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self' data:",
-    `connect-src 'self'${challenge}`,
+    `connect-src 'self' https://umami.animes.garden${challenge}`,
     ...(turnstile ? ['frame-src https://challenges.cloudflare.com'] : []),
     "object-src 'none'",
     "base-uri 'self'",

@@ -50,6 +50,13 @@ export function RootComponent() {
           </>
         )}
         <HeadContent />
+        <script
+          defer
+          src="https://umami.animes.garden/script.js"
+          data-website-id="31dcf2d2-8cad-4dcd-bd34-7cf9dd3ae320"
+          nonce={nonce}
+          suppressHydrationWarning
+        />
       </head>
       <body className="flex min-h-full flex-col bg-background font-sans text-foreground antialiased">
         {embedTheme === undefined ? (

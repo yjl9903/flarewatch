@@ -1,12 +1,18 @@
 import { expect, type Page } from '@playwright/test';
 import { test } from './fixtures';
 
-// Static assets bypass the Worker, so they do not spend the request budget.
+// Static assets bypass the Worker; external analytics do not call this Worker either.
 function trackServerCalls(page: Page): string[] {
+  const baseURL = test.info().project.use.baseURL;
+  if (!baseURL) throw new Error('Navigation budget tests require a base URL');
+  const origin = new URL(baseURL).origin;
   const calls: string[] = [];
   page.on('request', (request) => {
-    const { pathname } = new URL(request.url());
-    if (!pathname.startsWith('/assets/')) calls.push(`${request.method()} ${pathname}`);
+    const url = new URL(request.url());
+    if (url.origin !== origin) return;
+    const { pathname } = url;
+    if (!pathname.startsWith('/assets/') && pathname !== '/favicon.svg')
+      calls.push(`${request.method()} ${pathname}`);
   });
   return calls;
 }

@@ -11,6 +11,7 @@ All notable changes to FlareWatch will be documented in this file.
 - Check runs and Check now retain the 10,000-subrequest budget, including slow Globalping polling and reserved capacity for hub calls and alerts.
 - Keep the compact accordion spacing, dashboard layout and accessible coloured status counts alongside the upstream hydration-aware refresh clock.
 - Dashboard rows and monitor details show 84 two-hour periods across seven days, aligned to the page clock. Phones retain the existing truncation behavior; labels show one date and use 24:00 at midnight.
+- Track visits through `umami.animes.garden`; the CSP permits both Umami and the upstream optional Turnstile challenge.
 
 ## 3.6.0 - 2026-11-09
 

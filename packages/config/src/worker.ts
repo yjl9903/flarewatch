@@ -26,7 +26,7 @@ const regionalHomepages: MonitorTarget[] = homeRegions.map(({ id, name, magic })
   timeout: 48000,
   downAfterChecks: id.startsWith('cn_') || id === 'hk' ? 10 : 4,
   expectedCodes: [200],
-  responseKeyword: '<title>Anime Garden 動漫花園第三方镜像站以及动画 BT 资源聚合站</title>',
+  responseKeyword: 'rel="canonical" href="https://animes.garden/"',
   checkProxy: `globalping://?${new URLSearchParams({ magic, ipVersion: '4' }).toString()}`,
   // Keep regional failures visible; a direct fallback or confirmation would mask them.
   checkProxyFallback: false,

@@ -68,6 +68,8 @@ const monitors: Monitor[] = [
     name: '详情页 - Anime Garden',
     method: 'GET',
     target: 'https://animes.garden/detail/dmhy/718139',
+    // 详情页暂时下架。恢复后删除 expectedCodes，回到默认的 2xx 检查。
+    expectedCodes: [...Array.from({ length: 100 }, (_, i) => 200 + i), 404],
     checkEveryMinutes: 1,
     timeout: 48000,
     downAfterChecks: 4,
